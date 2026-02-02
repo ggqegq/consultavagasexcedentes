@@ -531,31 +531,6 @@ class ConsultorQuadroHorariosUFFDetalhado:
             st.warning(f"⚠️ Erro ao processar turma {url_turma}: {e}")
             return []
     
-    def testar_extracao_turma(self, url_turma):
-        """Função para testar a extração de uma turma específica"""
-        response = self.fazer_request(url_turma)
-        if not response:
-            return None
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # Extrair título
-        titulo = soup.find('h1')
-        titulo_texto = titulo.get_text(strip=True) if titulo else "Sem título"
-        
-        # Extrair vagas
-        vagas = self.extrair_vagas_detalhadas(soup, "Teste")
-        
-        # Extrair horários
-        horarios = self.extrair_horarios_turma(soup)
-        
-        return {
-            'titulo': titulo_texto,
-            'vagas': vagas,
-            'horarios': horarios,
-            'html_preview': str(soup)[:2000]  # Primeiros 2000 caracteres do HTML
-        }
-    
     def buscar_turmas_detalhadas(self, curso_nome, periodo, departamento=None):
         """Busca turmas detalhadas com todos os dados"""
         st.info(f"🔍 Buscando turmas de {curso_nome} - Período {periodo}" + 
@@ -597,8 +572,63 @@ class ConsultorQuadroHorariosUFFDetalhado:
         status_text.empty()
         
         return todas_turmas
+    
+    def consultar_vagas_completas(self, periodos, cursos, departamentos):
+        """Consulta completa de vagas com todos os detalhes - MÉTODO CORRIGIDO"""
+        todas_turmas = []
+        
+        total_consultas = len(periodos) * len(cursos) * len(departamentos)
+        consulta_atual = 0
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for periodo in periodos:
+            for curso in cursos:
+                for depto in departamentos:
+                    if st.session_state.processando == False:
+                        return todas_turmas
+                    
+                    consulta_atual += 1
+                    progresso = consulta_atual / total_consultas
+                    progress_bar.progress(progresso)
+                    
+                    status_text.text(f"🔍 {curso} | 📅 {periodo} | 🏫 {depto or 'Todos'}")
+                    
+                    turmas = self.buscar_turmas_detalhadas(curso, periodo, depto)
+                    todas_turmas.extend(turmas)
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        return todas_turmas
+    
+    def testar_extracao_turma(self, url_turma):
+        """Função para testar a extração de uma turma específica"""
+        response = self.fazer_request(url_turma)
+        if not response:
+            return None
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Extrair título
+        titulo = soup.find('h1')
+        titulo_texto = titulo.get_text(strip=True) if titulo else "Sem título"
+        
+        # Extrair vagas
+        vagas = self.extrair_vagas_detalhadas(soup, "Teste")
+        
+        # Extrair horários
+        horarios = self.extrair_horarios_turma(soup)
+        
+        return {
+            'titulo': titulo_texto,
+            'vagas': vagas,
+            'horarios': horarios,
+            'html_preview': str(soup)[:2000]  # Primeiros 2000 caracteres do HTML
+        }
 
-# ===== FUNÇÃO DE TESTE (adicione esta função à interface) =====
+# ===== FUNÇÃO DE TESTE =====
 def testar_extracao_individual():
     """Testa a extração de uma turma específica"""
     st.markdown("---")
@@ -643,7 +673,7 @@ def testar_extracao_individual():
                         st.code(resultado['html_preview'][:1000], language='html')
                 else:
                     st.error("❌ Falha na extração")
-                    
+
 # ===== FUNÇÕES PARA FORMATAÇÃO EXCEL =====
 def aplicar_formatacao_excel(workbook):
     """Aplica formatação profissional ao Excel"""
@@ -1113,6 +1143,9 @@ with st.sidebar:
     - Os dados são extraídos em tempo real do sistema UFF
     """)
 
+# Área de teste de extração individual
+testar_extracao_individual()
+
 # Área principal - Processamento
 if btn_consultar and periodos_formatados and cursos_selecionados:
     st.session_state.processando = True
@@ -1363,9 +1396,9 @@ elif not st.session_state.processando:
         ## 🆘 **Suporte:**
         
         Em caso de problemas:
+        - Use a função de teste individual
         - Verifique o formato do período
         - Tente menos filtros inicialmente
-        - Consulte o departamento
         """)
     
     # Exemplo de dados
