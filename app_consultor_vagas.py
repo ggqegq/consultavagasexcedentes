@@ -1,5 +1,5 @@
 # ==============================================
-# CONSULTOR DE VAGAS UFF - VERSÃO STREAMLIT COMPLETA
+# CONSULTOR DE VAGAS UFF - VERSÃO STREAMLIT CORRIGIDA
 # Sistema de consulta detalhada de turmas e vagas
 # ==============================================
 
@@ -75,10 +75,12 @@ if 'resultado_disponivel' not in st.session_state:
     st.session_state.resultado_disponivel = False
 if 'periodo_selecionado' not in st.session_state:
     st.session_state.periodo_selecionado = None
+if 'apenas_cursos_quimica' not in st.session_state:
+    st.session_state.apenas_cursos_quimica = True
 
 # ===== CLASSE DE CONSULTA UFF DETALHADA (VERSÃO CORRIGIDA) =====
 class ConsultorQuadroHorariosUFFDetalhado:
-    def __init__(self):
+    def __init__(self, apenas_cursos_quimica=True):
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -92,6 +94,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
         
         self.base_url = "https://app.uff.br/graduacao/quadrodehorarios/"
         self.cache = {}
+        self.apenas_cursos_quimica = apenas_cursos_quimica
         
         # Mapeamento de cursos
         self.ids_cursos = {
@@ -103,6 +106,9 @@ class ConsultorQuadroHorariosUFFDetalhado:
             'Química': 'FFE6CC',
             'Química Industrial': 'E6F3FF'
         }
+        
+        # Códigos de cursos de química para filtro
+        self.codigos_cursos_quimica = ['028', '029', 'Química', 'Química Industrial']
     
     def fazer_request(self, url, use_cache=True):
         """Faz uma requisição HTTP com cache"""
@@ -196,7 +202,6 @@ class ConsultorQuadroHorariosUFFDetalhado:
                 break
             
             todos_links.extend(links_pagina)
-            status_placeholder.text(f"✅ Página {pagina_atual}: {len(links_pagina)} turmas encontradas")
             
             # Verificar se há próxima página
             pagination = soup.find('ul', class_='pagination')
@@ -235,8 +240,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
                 
                 if tabela_horarios:
                     horarios = []
-                    dias_semana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
-                    
+                    dias_semana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Se
                     # Encontrar linha de horários (geralmente segunda linha)
                     linhas = tabela_horarios.find_all('tr')
                     if len(linhas) >= 2:
@@ -257,7 +261,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
         return 'Não informado'
     
     def extrair_vagas_detalhadas(self, soup, curso_origem):
-        """Extrai vagas detalhadas da turma - VERSÃO TOTALMENTE CORRIGIDA"""
+        """Extrai vagas detalhadas da turma - FILTRO APENAS CURSOS QUÍMICA"""
         try:
             # Procurar tabela de vagas alocadas
             tabela_vagas = None
@@ -285,129 +289,121 @@ class ConsultorQuadroHorariosUFFDetalhado:
                         break
             
             if not tabela_vagas:
-                st.warning("ℹ️ Tabela de vagas não encontrada")
-                return []
+                return []  # Retorna lista vazia se não encontrar tabela
             
             vagas_encontradas = []
+            texto_completo = tabela_vagas.get_text()
             
-            # Extrair linhas da tabela
-            linhas = tabela_vagas.find_all('tr')
+            # Procurar por cursos de química no texto completo
+            cursos_encontrados = []
             
-            # Pular cabeçalhos e processar linhas de dados
-            for linha in linhas:
-                colunas = linha.find_all(['td', 'th'])
-                texto_linha = linha.get_text(strip=True).lower()
+            # Padrão para Química (028)
+            padrao_quimica = re.search(r'(028.*?Química).*?(\d+).*?(\d+).*?(\d+).*?(\d+)', texto_completo, re.IGNORECASE | re.DOTALL)
+            if padrao_quimica:
+                nome_curso = padrao_quimica.group(1).strip()
+                vagas_reg = int(padrao_quimica.group(2)) if padrao_quimica.group(2).isdigit() else 0
+                vagas_vest = int(padrao_quimica.group(3)) if padrao_quimica.group(3).isdigit() else 0
+                inscritos_reg = int(padrao_quimica.group(4)) if padrao_quimica.group(4).isdigit() else 0
+                inscritos_vest = int(padrao_quimica.group(5)) if padrao_quimica.group(5).isdigit() else 0
                 
-                # Verificar se é linha de dados (contém números de vagas)
-                if ('028' in linha.get_text() or '029' in linha.get_text() or 
-                    'química' in texto_linha):
-                    
-                    # Extrair texto de todas as colunas
-                    textos_colunas = [col.get_text(strip=True) for col in colunas]
-                    
-                    # Procurar por padrões de números
-                    if len(textos_colunas) >= 6:
-                        try:
-                            # Padrão 1: [Curso, Vagas Reg, Vagas Vest, Inscritos Reg, Inscritos Vest, ...]
-                            curso_nome = textos_colunas[0]
-                            
-                            # Extrair números - pode estar em diferentes formatos
-                            numeros = []
-                            for texto in textos_colunas[1:]:
-                                # Tentar extrair números do texto
-                                matches = re.findall(r'\d+', texto)
-                                if matches:
-                                    numeros.extend([int(m) for m in matches])
-                            
-                            # Se encontrou números suficientes
-                            if len(numeros) >= 4:
-                                vagas_reg = numeros[0] if len(numeros) > 0 else 0
-                                vagas_vest = numeros[1] if len(numeros) > 1 else 0
-                                inscritos_reg = numeros[2] if len(numeros) > 2 else 0
-                                inscritos_vest = numeros[3] if len(numeros) > 3 else 0
-                                excedentes = numeros[4] if len(numeros) > 4 else 0
-                                candidatos = numeros[5] if len(numeros) > 5 else 0
-                                
-                                vaga_info = {
-                                    'curso': curso_nome,
-                                    'vagas_reg': vagas_reg,
-                                    'vagas_vest': vagas_vest,
-                                    'inscritos_reg': inscritos_reg,
-                                    'inscritos_vest': inscritos_vest,
-                                    'excedentes': excedentes,
-                                    'candidatos': candidatos,
-                                    'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
-                                    'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
-                                    'total_vagas': vagas_reg + vagas_vest,
-                                    'total_inscritos': inscritos_reg + inscritos_vest,
-                                    'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
-                                }
-                                vagas_encontradas.append(vaga_info)
-                                
-                        except Exception as e:
-                            st.warning(f"⚠️ Erro ao processar linha de vagas: {e}")
-                            continue
+                # Se filtro ativo, só inclui se for curso de química
+                if not self.apenas_cursos_quimica or 'química' in nome_curso.lower():
+                    vaga_info = {
+                        'curso': nome_curso,
+                        'vagas_reg': vagas_reg,
+                        'vagas_vest': vagas_vest,
+                        'inscritos_reg': inscritos_reg,
+                        'inscritos_vest': inscritos_vest,
+                        'excedentes': 0,
+                        'candidatos': 0,
+                        'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
+                        'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
+                        'total_vagas': vagas_reg + vagas_vest,
+                        'total_inscritos': inscritos_reg + inscritos_vest,
+                        'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
+                    }
+                    vagas_encontradas.append(vaga_info)
             
-            # Se não encontrou pelo método padrão, tentar extração direta do texto
+            # Padrão para Química Industrial (029)
+            padrao_industrial = re.search(r'(029.*?Química.*?Industrial).*?(\d+).*?(\d+).*?(\d+).*?(\d+)', texto_completo, re.IGNORECASE | re.DOTALL)
+            if padrao_industrial:
+                nome_curso = padrao_industrial.group(1).strip()
+                vagas_reg = int(padrao_industrial.group(2)) if padrao_industrial.group(2).isdigit() else 0
+                vagas_vest = int(padrao_industrial.group(3)) if padrao_industrial.group(3).isdigit() else 0
+                inscritos_reg = int(padrao_industrial.group(4)) if padrao_industrial.group(4).isdigit() else 0
+                inscritos_vest = int(padrao_industrial.group(5)) if padrao_industrial.group(5).isdigit() else 0
+                
+                # Se filtro ativo, só inclui se for curso de química
+                if not self.apenas_cursos_quimica or 'química' in nome_curso.lower():
+                    vaga_info = {
+                        'curso': nome_curso,
+                        'vagas_reg': vagas_reg,
+                        'vagas_vest': vagas_vest,
+                        'inscritos_reg': inscritos_reg,
+                        'inscritos_vest': inscritos_vest,
+                        'excedentes': 0,
+                        'candidatos': 0,
+                        'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
+                        'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
+                        'total_vagas': vagas_reg + vagas_vest,
+                        'total_inscritos': inscritos_reg + inscritos_vest,
+                        'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
+                    }
+                    vagas_encontradas.append(vaga_info)
+            
+            # Se não encontrou por regex, tentar método alternativo
             if not vagas_encontradas:
-                texto_completo = tabela_vagas.get_text()
+                # Extrair linhas da tabela
+                linhas = tabela_vagas.find_all('tr')
                 
-                # Padrões para Química (028)
-                padrao_quimica = re.search(r'028.*?Química.*?(\d+).*?(\d+).*?(\d+).*?(\d+)', texto_completo)
-                if padrao_quimica:
-                    vagas_reg = int(padrao_quimica.group(1))
-                    vagas_vest = int(padrao_quimica.group(2)) if padrao_quimica.group(2) else 0
-                    inscritos_reg = int(padrao_quimica.group(3))
-                    inscritos_vest = int(padrao_quimica.group(4)) if padrao_quimica.group(4) else 0
+                for linha in linhas:
+                    texto_linha = linha.get_text(strip=True).lower()
                     
-                    vaga_info = {
-                        'curso': '028 - Química',
-                        'vagas_reg': vagas_reg,
-                        'vagas_vest': vagas_vest,
-                        'inscritos_reg': inscritos_reg,
-                        'inscritos_vest': inscritos_vest,
-                        'excedentes': 0,
-                        'candidatos': 0,
-                        'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
-                        'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
-                        'total_vagas': vagas_reg + vagas_vest,
-                        'total_inscritos': inscritos_reg + inscritos_vest,
-                        'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
-                    }
-                    vagas_encontradas.append(vaga_info)
-                
-                # Padrões para Química Industrial (029)
-                padrao_industrial = re.search(r'029.*?Química.*?Industrial.*?(\d+).*?(\d+).*?(\d+).*?(\d+)', texto_completo)
-                if padrao_industrial:
-                    vagas_reg = int(padrao_industrial.group(1))
-                    vagas_vest = int(padrao_industrial.group(2)) if padrao_industrial.group(2) else 0
-                    inscritos_reg = int(padrao_industrial.group(3))
-                    inscritos_vest = int(padrao_industrial.group(4)) if padrao_industrial.group(4) else 0
-                    
-                    vaga_info = {
-                        'curso': '029 - Química Industrial',
-                        'vagas_reg': vagas_reg,
-                        'vagas_vest': vagas_vest,
-                        'inscritos_reg': inscritos_reg,
-                        'inscritos_vest': inscritos_vest,
-                        'excedentes': 0,
-                        'candidatos': 0,
-                        'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
-                        'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
-                        'total_vagas': vagas_reg + vagas_vest,
-                        'total_inscritos': inscritos_reg + inscritos_vest,
-                        'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
-                    }
-                    vagas_encontradas.append(vaga_info)
+                    # Verificar se é linha de curso de química
+                    if ('028' in texto_linha or '029' in texto_linha or 
+                        'química' in texto_linha):
+                        
+                        # Extrair números da linha
+                        numeros = re.findall(r'\d+', linha.get_text())
+                        
+                        if len(numeros) >= 4:
+                            try:
+                                nome_curso_match = re.search(r'([A-Za-zÀ-ÿ\s\-]+)', linha.get_text())
+                                nome_curso = nome_curso_match.group(1).strip() if nome_curso_match else "Curso não identificado"
+                                
+                                vagas_reg = int(numeros[0]) if len(numeros) > 0 else 0
+                                vagas_vest = int(numeros[1]) if len(numeros) > 1 else 0
+                                inscritos_reg = int(numeros[2]) if len(numeros) > 2 else 0
+                                inscritos_vest = int(numeros[3]) if len(numeros) > 3 else 0
+                                
+                                # Se filtro ativo, só inclui se for curso de química
+                                if not self.apenas_cursos_quimica or 'química' in nome_curso.lower():
+                                    vaga_info = {
+                                        'curso': nome_curso,
+                                        'vagas_reg': vagas_reg,
+                                        'vagas_vest': vagas_vest,
+                                        'inscritos_reg': inscritos_reg,
+                                        'inscritos_vest': inscritos_vest,
+                                        'excedentes': 0,
+                                        'candidatos': 0,
+                                        'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
+                                        'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
+                                        'total_vagas': vagas_reg + vagas_vest,
+                                        'total_inscritos': inscritos_reg + inscritos_vest,
+                                        'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
+                                    }
+                                    vagas_encontradas.append(vaga_info)
+                            except Exception as e:
+                                continue
             
             return vagas_encontradas
             
         except Exception as e:
-            st.error(f"❌ Erro crítico ao extrair vagas: {e}")
+            st.warning(f"⚠️ Erro ao extrair vagas: {e}")
             return []
     
     def extrair_dados_turma_detalhado(self, url_turma, curso_origem, periodo, departamento_busca=None):
-        """Extrai dados detalhados de uma turma específica - VERSÃO CORRIGIDA"""
+        """Extrai dados detalhados de uma turma específica - SEM DUPLICAÇÃO"""
         try:
             response = self.fazer_request(url_turma)
             if not response:
@@ -473,7 +469,12 @@ class ConsultorQuadroHorariosUFFDetalhado:
             vagas_detalhadas = self.extrair_vagas_detalhadas(soup, curso_origem)
             
             if not vagas_detalhadas:
-                # Criar registro básico se não encontrou vagas
+                # Se não encontrou vagas E estamos filtrando apenas cursos química,
+                # não retornar registro para evitar duplicação
+                if self.apenas_cursos_quimica:
+                    return []
+                
+                # Se não está filtrando, criar registro básico
                 registro_basico = {
                     'periodo': periodo,
                     'departamento': departamento,
@@ -558,10 +559,26 @@ class ConsultorQuadroHorariosUFFDetalhado:
         status_text = st.empty()
         
         for i, link in enumerate(links_turmas):
-            status_text.text(f"📋 Processando turma {i+1}/{total_turmas}")
+            if st.session_state.processando == False:
+                break
+                
+            status_text.text(f"📋 Processando turma {i+1}/{total_turmas}: {link.split('/')[-1]}")
             
             registros = self.extrair_dados_turma_detalhado(link, curso_nome, periodo, departamento)
-            todas_turmas.extend(registros)
+            
+            # Filtrar para evitar duplicação
+            for registro in registros:
+                # Verificar se já existe registro similar
+                duplicado = False
+                for existente in todas_turmas:
+                    if (existente['codigo_disciplina'] == registro['codigo_disciplina'] and
+                        existente['turma'] == registro['turma'] and
+                        existente['curso_vaga'] == registro['curso_vaga']):
+                        duplicado = True
+                        break
+                
+                if not duplicado:
+                    todas_turmas.append(registro)
             
             progress_bar.progress((i + 1) / total_turmas)
             
@@ -574,7 +591,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
         return todas_turmas
     
     def consultar_vagas_completas(self, periodos, cursos, departamentos):
-        """Consulta completa de vagas com todos os detalhes - MÉTODO CORRIGIDO"""
+        """Consulta completa de vagas com todos os detalhes - SEM DUPLICAÇÃO"""
         todas_turmas = []
         
         total_consultas = len(periodos) * len(cursos) * len(departamentos)
@@ -596,7 +613,23 @@ class ConsultorQuadroHorariosUFFDetalhado:
                     status_text.text(f"🔍 {curso} | 📅 {periodo} | 🏫 {depto or 'Todos'}")
                     
                     turmas = self.buscar_turmas_detalhadas(curso, periodo, depto)
-                    todas_turmas.extend(turmas)
+                    
+                    # Adicionar turmas, evitando duplicação
+                    for turma in turmas:
+                        duplicado = False
+                        for existente in todas_turmas:
+                            if (existente['codigo_disciplina'] == turma['codigo_disciplina'] and
+                                existente['turma'] == turma['turma'] and
+                                existente['curso_vaga'] == turma['curso_vaga'] and
+                                existente['periodo'] == turma['periodo']):
+                                duplicado = True
+                                break
+                        
+                        if not duplicado:
+                            todas_turmas.append(turma)
+                    
+                    # Pequena pausa entre consultas
+                    time.sleep(0.5)
         
         progress_bar.empty()
         status_text.empty()
@@ -634,25 +667,32 @@ def testar_extracao_individual():
     st.markdown("---")
     st.subheader("🧪 Teste de Extração Individual")
     
-    url_teste = st.text_input(
-        "URL da turma para teste:",
-        value="https://app.uff.br/graduacao/quadrodehorarios/turmas/100000427249",
-        help="Cole a URL completa de uma turma para testar a extração"
-    )
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        url_teste = st.text_input(
+            "URL da turma para teste:",
+            value="https://app.uff.br/graduacao/quadrodehorarios/turmas/100000427249",
+            help="Cole a URL completa de uma turma para testar a extração"
+        )
+    
+    with col2:
+        apenas_quimica = st.checkbox("Apenas Química", value=True, 
+                                    help="Mostrar apenas cursos de Química")
     
     if st.button("🔬 Testar Extração", type="secondary"):
         if url_teste:
             with st.spinner("Testando extração..."):
-                consultor = ConsultorQuadroHorariosUFFDetalhado()
+                consultor = ConsultorQuadroHorariosUFFDetalhado(apenas_cursos_quimica=apenas_quimica)
                 resultado = consultor.testar_extracao_turma(url_teste)
                 
                 if resultado:
                     st.success("✅ Extração concluída!")
                     
                     # Mostrar resultados
-                    col1, col2 = st.columns(2)
+                    col_res1, col_res2 = st.columns(2)
                     
-                    with col1:
+                    with col_res1:
                         st.markdown("**📋 Informações Extraídas:**")
                         st.write(f"**Título:** {resultado['titulo']}")
                         st.write(f"**Horários:** {resultado['horarios']}")
@@ -666,9 +706,10 @@ def testar_extracao_individual():
                                 st.write(f"  Vagas Disp. Reg: {vaga['vagas_disponiveis_reg']}")
                                 st.write(f"  Vagas Disp. Vest: {vaga['vagas_disponiveis_vest']}")
                         else:
-                            st.warning("⚠️ Nenhuma vaga encontrada")
+                            st.warning("⚠️ Nenhuma vaga encontrada" + 
+                                     (" (filtro 'Apenas Química' ativo)" if apenas_quimica else ""))
                     
-                    with col2:
+                    with col_res2:
                         st.markdown("**🔍 HTML da Página (amostra):**")
                         st.code(resultado['html_preview'][:1000], language='html')
                 else:
@@ -886,6 +927,14 @@ def validar_periodo(periodo):
                 return True
     return False
 
+def validar_departamento(depto):
+    """Valida formato do departamento"""
+    if depto == 'TODOS' or depto == '':
+        return True
+    if len(depto) == 3 and depto.isalpha():
+        return True
+    return False
+
 def criar_visualizacoes(df):
     """Cria visualizações gráficas dos dados"""
     if df.empty:
@@ -1001,13 +1050,15 @@ def criar_visualizacoes(df):
         with col_filt1:
             curso_analise = st.selectbox(
                 "Selecione o curso para análise:",
-                options=['Todos'] + list(df['curso_vaga'].unique())
+                options=['Todos'] + list(df['curso_vaga'].unique()),
+                key="analise_curso"
             )
         
         with col_filt2:
             ordenacao = st.selectbox(
                 "Ordenar por:",
-                options=['Mais vagas disponíveis', 'Mais inscritos', 'Código da disciplina']
+                options=['Mais vagas disponíveis', 'Mais inscritos', 'Código da disciplina'],
+                key="analise_ordenacao"
             )
         
         # Filtrar dados
@@ -1065,7 +1116,8 @@ with st.sidebar:
     periodo_input = st.text_input(
         "Digite o período (ex: 2025.2, 2026.1):",
         value="2025.2",
-        help="Formato: AAAA.S (ex: 2025.2 para 2025 semestre 2)"
+        help="Formato: AAAA.S (ex: 2025.2 para 2025 semestre 2)",
+        key="periodo_input"
     )
     
     if periodo_input:
@@ -1079,9 +1131,9 @@ with st.sidebar:
         periodos_formatados = []
     
     # Permitir múltiplos períodos
-    adicionar_periodo = st.checkbox("Adicionar outro período")
+    adicionar_periodo = st.checkbox("Adicionar outro período", key="adicionar_periodo")
     if adicionar_periodo:
-        periodo2 = st.text_input("Segundo período:", value="2025.1")
+        periodo2 = st.text_input("Segundo período:", value="2025.1", key="periodo2")
         if periodo2 and validar_periodo(periodo2):
             periodos_formatados.append(periodo2.replace('.', ''))
     
@@ -1091,31 +1143,70 @@ with st.sidebar:
     cursos_selecionados = st.multiselect(
         "Selecione os cursos:",
         options=['Química', 'Química Industrial'],
-        default=['Química', 'Química Industrial']
+        default=['Química', 'Química Industrial'],
+        key="cursos_selecionados"
     )
     
     st.markdown("---")
     st.subheader("🏫 Departamentos")
     
-    # Departamentos comuns
-    departamentos_opcoes = [
-        'TODOS', 'GQI', 'GFI', 'MAF', 'FIS', 'BIO', 'MAT', 
-        'GEC', 'GEO', 'GEA', 'GFB', 'GCN', 'GCO'
-    ]
-    
-    departamentos_selecionados = st.multiselect(
-        "Filtrar por departamento:",
-        options=departamentos_opcoes,
-        default=['TODOS']
+    # Opção para digitar departamento livremente
+    modo_departamento = st.radio(
+        "Modo de seleção de departamento:",
+        options=['Lista pré-definida', 'Digitar código'],
+        key="modo_departamento"
     )
+    
+    departamentos_selecionados = []
+    
+    if modo_departamento == 'Lista pré-definida':
+        # Departamentos comuns
+        departamentos_opcoes = [
+            'TODOS', 'GQI', 'GFI', 'MAF', 'FIS', 'BIO', 'MAT', 
+            'GEC', 'GEO', 'GEA', 'GFB', 'GCN', 'GCO'
+        ]
+        
+        departamentos_selecionados = st.multiselect(
+            "Selecione departamentos:",
+            options=departamentos_opcoes,
+            default=['TODOS'],
+            key="departamentos_lista"
+        )
+    else:
+        # Entrada livre
+        depto_input = st.text_input(
+            "Digite o código do departamento (3 letras):",
+            value="GQI",
+            max_chars=3,
+            help="Ex: GQI, MAF, FIS, BIO, etc.",
+            key="depto_input"
+        )
+        
+        if depto_input:
+            depto_input = depto_input.strip().upper()
+            if validar_departamento(depto_input):
+                departamentos_selecionados = [depto_input]
+                st.success(f"✅ Departamento válido: {depto_input}")
+            else:
+                st.error("❌ Código inválido. Use 3 letras (ex: GQI) ou 'TODOS'")
+                departamentos_selecionados = []
+        else:
+            departamentos_selecionados = ['TODOS']
     
     st.markdown("---")
     
     # Configurações avançadas
     with st.expander("⚙️ Configurações Avançadas"):
-        st.checkbox("Usar cache", value=True, help="Usar cache para consultas repetidas")
-        st.checkbox("Detalhar todas as turmas", value=True, help="Extrair dados detalhados de cada turma")
-        limite_turmas = st.number_input("Limite de turmas por consulta", min_value=10, max_value=500, value=100)
+        st.session_state.apenas_cursos_quimica = st.checkbox(
+            "Mostrar apenas cursos de Química", 
+            value=True,
+            help="Filtrar para mostrar apenas vagas dos cursos 028 (Química) e 029 (Química Industrial)",
+            key="apenas_cursos_quimica"
+        )
+        
+        st.checkbox("Usar cache", value=True, help="Usar cache para consultas repetidas", key="usar_cache")
+        st.checkbox("Detalhar todas as turmas", value=True, help="Extrair dados detalhados de cada turma", key="detalhar_turmas")
+        limite_turmas = st.number_input("Limite de turmas por consulta", min_value=10, max_value=500, value=100, key="limite_turmas")
     
     st.markdown("---")
     
@@ -1126,10 +1217,11 @@ with st.sidebar:
         btn_consultar = st.button("🔍 Consultar Vagas", 
                                  type="primary", 
                                  use_container_width=True,
-                                 disabled=not periodos_formatados or not cursos_selecionados)
+                                 disabled=not periodos_formatados or not cursos_selecionados,
+                                 key="btn_consultar")
     
     with col2:
-        if st.button("🔄 Limpar", use_container_width=True):
+        if st.button("🔄 Limpar", use_container_width=True, key="btn_limpar"):
             st.session_state.processando = False
             st.session_state.resultado_disponivel = False
             st.session_state.dados_turmas = None
@@ -1153,13 +1245,28 @@ if btn_consultar and periodos_formatados and cursos_selecionados:
     
     with st.spinner("🔄 Inicializando consulta..."):
         try:
-            consultor = ConsultorQuadroHorariosUFFDetalhado()
+            # Configurar consultor com filtro
+            apenas_quimica = st.session_state.get('apenas_cursos_quimica', True)
+            consultor = ConsultorQuadroHorariosUFFDetalhado(apenas_cursos_quimica=apenas_quimica)
+            
+            # Preparar departamentos para consulta
+            deptos_consulta = []
+            for depto in departamentos_selecionados:
+                if depto == 'TODOS':
+                    deptos_consulta.append(None)
+                else:
+                    deptos_consulta.append(depto)
+            
+            # Se não há departamentos selecionados, usar todos
+            if not deptos_consulta:
+                deptos_consulta = [None]
             
             st.info(f"""
             **🎯 Consulta Configurada:**
             - 📅 Períodos: {', '.join([formatar_periodo(p) for p in periodos_formatados])}
             - 🎓 Cursos: {', '.join(cursos_selecionados)}
-            - 🏫 Departamentos: {', '.join(departamentos_selecionados)}
+            - 🏫 Departamentos: {', '.join([d if d else 'Todos' for d in departamentos_selecionados])}
+            - 🔍 Filtro: {'Apenas cursos de Química' if apenas_quimica else 'Todos os cursos'}
             """)
             
             st.warning("""
@@ -1171,7 +1278,7 @@ if btn_consultar and periodos_formatados and cursos_selecionados:
             dados = consultor.consultar_vagas_completas(
                 periodos=periodos_formatados,
                 cursos=cursos_selecionados,
-                departamentos=departamentos_selecionados
+                departamentos=deptos_consulta
             )
             
             if dados:
@@ -1182,6 +1289,15 @@ if btn_consultar and periodos_formatados and cursos_selecionados:
                 
                 st.success(f"✅ Consulta concluída com sucesso!")
                 st.success(f"📊 {len(dados)} registros coletados")
+                
+                # Mostrar estatísticas
+                col_stat1, col_stat2, col_stat3 = st.columns(3)
+                with col_stat1:
+                    st.metric("Cursos encontrados", len(df_resultado['curso_vaga'].unique()))
+                with col_stat2:
+                    st.metric("Departamentos", len(df_resultado['departamento'].unique()))
+                with col_stat3:
+                    st.metric("Turmas com vagas", len(df_resultado[df_resultado['total_vagas_disponiveis'] > 0]))
                 
                 # Mostrar preview
                 with st.expander("👁️ Visualizar amostra dos dados"):
@@ -1235,7 +1351,7 @@ if st.session_state.resultado_disponivel and st.session_state.dados_turmas is no
     
     with col_exp1:
         # Exportar Excel Completo
-        if st.button("📊 Excel Completo", use_container_width=True):
+        if st.button("📊 Excel Completo", use_container_width=True, key="btn_excel"):
             excel_buffer = gerar_excel_completo(df, periodo_formatado)
             if excel_buffer:
                 st.download_button(
@@ -1248,7 +1364,7 @@ if st.session_state.resultado_disponivel and st.session_state.dados_turmas is no
     
     with col_exp2:
         # Exportar CSV
-        if st.button("📄 CSV Simples", use_container_width=True):
+        if st.button("📄 CSV Simples", use_container_width=True, key="btn_csv"):
             csv = df.to_csv(index=False, encoding='utf-8-sig')
             st.download_button(
                 label="⬇️ Baixar CSV",
@@ -1260,7 +1376,7 @@ if st.session_state.resultado_disponivel and st.session_state.dados_turmas is no
     
     with col_exp3:
         # Exportar JSON
-        if st.button("🔤 JSON", use_container_width=True):
+        if st.button("🔤 JSON", use_container_width=True, key="btn_json"):
             json_data = df.to_json(orient='records', indent=2, force_ascii=False)
             st.download_button(
                 label="⬇️ Baixar JSON",
@@ -1280,19 +1396,22 @@ if st.session_state.resultado_disponivel and st.session_state.dados_turmas is no
     with col_filt1:
         filtro_curso = st.selectbox(
             "Filtrar por curso:",
-            options=['Todos'] + list(df['curso_vaga'].unique())
+            options=['Todos'] + list(df['curso_vaga'].unique()),
+            key="filtro_curso_tabela"
         )
     
     with col_filt2:
         filtro_depto = st.selectbox(
             "Filtrar por departamento:",
-            options=['Todos'] + list(df['departamento'].unique())
+            options=['Todos'] + [d for d in df['departamento'].unique() if pd.notna(d)],
+            key="filtro_depto_tabela"
         )
     
     with col_filt3:
         filtro_vagas = st.selectbox(
             "Filtrar por vagas:",
-            options=['Todas', 'Com vagas disponíveis', 'Sem vagas']
+            options=['Todas', 'Com vagas disponíveis', 'Sem vagas'],
+            key="filtro_vagas_tabela"
         )
     
     # Aplicar filtros
@@ -1353,22 +1472,21 @@ elif not st.session_state.processando:
         
         ### 📋 **Funcionalidades:**
         
-        **✅ Consulta Detalhada:**
-        - Vagas regulares e por vestibular
-        - Número de inscritos em tempo real
-        - Horários das turmas
-        - Dados por departamento
+        **✅ Consulta Sem Duplicação:**
+        - Dados únicos por turma e curso
+        - Filtro para mostrar apenas cursos de Química
+        - Evita registros duplicados
+        
+        **✅ Departamentos Flexíveis:**
+        - Lista pré-definida ou digitação livre
+        - Aceita qualquer código de 3 letras
+        - Retorna mensagem clara se não houver resultados
         
         **✅ Exportação Completa:**
         - Excel com múltiplas abas (igual ao Colab)
         - Formatação profissional com cores
         - Estatísticas detalhadas
         - Dados brutos em CSV/JSON
-        
-        **✅ Visualizações:**
-        - Gráficos interativos com Plotly
-        - Análise por curso e departamento
-        - Filtros dinâmicos
         
         ### 🎓 **Cursos Suportados:**
         - 🧪 **Bacharelado em Química** (Código 028)
@@ -1381,17 +1499,18 @@ elif not st.session_state.processando:
         
         1. **📅 Digite o período** (ex: 2026.1)
         2. **🎓 Selecione os cursos**
-        3. **🏫 Escolha departamentos** (opcional)
-        4. **🔍 Clique em Consultar Vagas**
-        5. **📊 Analise os resultados**
-        6. **📥 Exporte os dados**
+        3. **🏫 Escolha departamentos** (lista ou digite)
+        4. **⚙️ Configure filtros** (apenas Química, etc.)
+        5. **🔍 Clique em Consultar Vagas**
+        6. **📊 Analise os resultados**
+        7. **📥 Exporte os dados**
         
         ## ⚠️ **Importante:**
         
         - ⏳ Consultas detalhadas são mais lentas
         - 📶 Conexão estável necessária
         - 🔄 Não feche durante o processamento
-        - 💾 Dados atualizados do sistema oficial
+        - ✅ Use o teste individual primeiro
         
         ## 🆘 **Suporte:**
         
@@ -1399,6 +1518,7 @@ elif not st.session_state.processando:
         - Use a função de teste individual
         - Verifique o formato do período
         - Tente menos filtros inicialmente
+        - Digite códigos de departamento manualmente
         """)
     
     # Exemplo de dados
@@ -1412,15 +1532,13 @@ elif not st.session_state.processando:
         | **nome_disciplina** | Nome da disciplina | Química Geral |
         | **turma** | Identificação da turma | A01 |
         | **horarios** | Horários das aulas | Segunda: 08-10h \| Quarta: 10-12h |
-        | **curso_vaga** | Curso da vaga | Química - 028 |
+        | **curso_vaga** | Curso da vaga | 028 - Química |
         | **vagas_reg** | Vagas regulares | 40 |
         | **inscritos_reg** | Inscritos regulares | 35 |
         | **vagas_disponiveis_reg** | Vagas disp. regulares | 5 |
         | **vagas_vest** | Vagas vestibular | 20 |
         | **inscritos_vest** | Inscritos vestibular | 18 |
         | **vagas_disponiveis_vest** | Vagas disp. vestibular | 2 |
-        | **excedentes** | Excedentes | 3 |
-        | **candidatos** | Candidatos | 5 |
         | **total_vagas_disponiveis** | Total vagas disponíveis | 7 |
         """)
 
