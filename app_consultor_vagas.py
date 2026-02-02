@@ -76,7 +76,7 @@ if 'resultado_disponivel' not in st.session_state:
 if 'periodo_selecionado' not in st.session_state:
     st.session_state.periodo_selecionado = None
 
-# ===== CLASSE DE CONSULTA UFF DETALHADA =====
+# ===== CLASSE DE CONSULTA UFF DETALHADA (VERSÃO CORRIGIDA) =====
 class ConsultorQuadroHorariosUFFDetalhado:
     def __init__(self):
         self.session = requests.Session()
@@ -103,9 +103,6 @@ class ConsultorQuadroHorariosUFFDetalhado:
             'Química': 'FFE6CC',
             'Química Industrial': 'E6F3FF'
         }
-        
-        # Códigos de departamentos comuns
-        self.departamentos_quimica = ['GQI', 'GFI', 'MAF', 'FIS', 'BIO', 'MAT']
     
     def fazer_request(self, url, use_cache=True):
         """Faz uma requisição HTTP com cache"""
@@ -166,16 +163,27 @@ class ConsultorQuadroHorariosUFFDetalhado:
                 if '/turmas/' in href:
                     full_url = href if href.startswith('http') else f"https://app.uff.br{href}"
                     links.append(full_url)
+        else:
+            # Tentar encontrar links alternativamente
+            for link in soup.find_all('a', href=True):
+                href = link['href']
+                if '/turmas/' in href and href not in links:
+                    full_url = href if href.startswith('http') else f"https://app.uff.br{href}"
+                    links.append(full_url)
         
-        return links
+        return list(set(links))
     
     def navegar_paginas(self, url_inicial, nome_curso):
         """Navega por todas as páginas de resultados"""
         todos_links = []
         pagina_atual = 1
         
+        status_placeholder = st.empty()
+        
         while True:
             url_pagina = f"{url_inicial}&page={pagina_atual}" if pagina_atual > 1 else url_inicial
+            status_placeholder.text(f"📄 Buscando página {pagina_atual}...")
+            
             response = self.fazer_request(url_pagina)
             
             if not response:
@@ -188,6 +196,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
                 break
             
             todos_links.extend(links_pagina)
+            status_placeholder.text(f"✅ Página {pagina_atual}: {len(links_pagina)} turmas encontradas")
             
             # Verificar se há próxima página
             pagination = soup.find('ul', class_='pagination')
@@ -199,93 +208,206 @@ class ConsultorQuadroHorariosUFFDetalhado:
                 break
             
             pagina_atual += 1
-            time.sleep(1)  # Respeitar o servidor
+            time.sleep(0.5)  # Respeitar o servidor
         
-        return list(set(todos_links))  # Remover duplicados
+        status_placeholder.empty()
+        return list(set(todos_links))
     
     def extrair_horarios_turma(self, soup):
-        """Extrai horários da turma"""
+        """Extrai horários da turma - VERSÃO CORRIGIDA"""
         try:
-            secao_horarios = soup.find('h5', string=re.compile('Horários da Turma', re.IGNORECASE))
+            # Procurar seção de horários
+            secao_horarios = None
+            for h in soup.find_all(['h2', 'h3', 'h4', 'h5', 'strong', 'b']):
+                texto = h.get_text(strip=True).lower()
+                if 'horários' in texto and 'turma' in texto:
+                    secao_horarios = h
+                    break
+            
             if secao_horarios:
-                tabela_horarios = secao_horarios.find_next('table')
+                # Encontrar tabela seguinte
+                proximo_elemento = secao_horarios.find_next(['table', 'div'])
+                if proximo_elemento and proximo_elemento.name == 'table':
+                    tabela_horarios = proximo_elemento
+                else:
+                    # Tentar encontrar tabela depois do elemento
+                    tabela_horarios = secao_horarios.find_next('table')
+                
                 if tabela_horarios:
                     horarios = []
                     dias_semana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+                    
+                    # Encontrar linha de horários (geralmente segunda linha)
                     linhas = tabela_horarios.find_all('tr')
                     if len(linhas) >= 2:
-                        linha_horarios = linhas[1]
-                        colunas = linha_horarios.find_all('td')
+                        linha_horarios = linhas[1]  # Segunda linha geralmente tem os horários
+                        colunas = linha_horarios.find_all(['td', 'th'])
+                        
                         for i, coluna in enumerate(colunas):
+                            if i >= len(dias_semana):
+                                break
                             texto = coluna.get_text(strip=True)
-                            if texto and i < len(dias_semana):
+                            if texto and texto not in dias_semana:
                                 horarios.append(f"{dias_semana[i]}: {texto}")
+                    
                     return ' | '.join(horarios) if horarios else 'Não informado'
-        except Exception:
-            pass
+        except Exception as e:
+            st.warning(f"⚠️ Erro ao extrair horários: {e}")
+        
         return 'Não informado'
     
     def extrair_vagas_detalhadas(self, soup, curso_origem):
-        """Extrai vagas detalhadas da turma - VERSÃO CORRIGIDA"""
+        """Extrai vagas detalhadas da turma - VERSÃO TOTALMENTE CORRIGIDA"""
         try:
-            # Procurar seção de Vagas Alocadas
-            secao_vagas = soup.find('h5', string=re.compile('Vagas Alocadas', re.IGNORECASE))
-            if not secao_vagas:
-                return []
+            # Procurar tabela de vagas alocadas
+            tabela_vagas = None
             
-            tabela_vagas = secao_vagas.find_next('table')
+            # Método 1: Buscar por texto "Vagas Alocadas" e pegar a próxima tabela
+            for elemento in soup.find_all(['h2', 'h3', 'h4', 'h5', 'strong', 'b']):
+                texto = elemento.get_text(strip=True).lower()
+                if 'vagas' in texto and 'alocadas' in texto:
+                    # Encontrar a próxima tabela
+                    for proximo in elemento.find_next_siblings():
+                        if proximo.name == 'table':
+                            tabela_vagas = proximo
+                            break
+                    if not tabela_vagas:
+                        # Tentar encontrar qualquer tabela após o elemento
+                        tabela_vagas = elemento.find_next('table')
+                    break
+            
+            # Método 2: Buscar tabela com estrutura específica
             if not tabela_vagas:
+                for tabela in soup.find_all('table'):
+                    texto_tabela = tabela.get_text(strip=True).lower()
+                    if 'vagas' in texto_tabela and ('reg' in texto_tabela or 'vest' in texto_tabela):
+                        tabela_vagas = tabela
+                        break
+            
+            if not tabela_vagas:
+                st.warning("ℹ️ Tabela de vagas não encontrada")
                 return []
             
             vagas_encontradas = []
             
-            # Encontrar linhas da tabela (pular cabeçalhos)
-            linhas = tabela_vagas.find_all('tr')[2:]  # Pular as duas primeiras linhas de cabeçalho
+            # Extrair linhas da tabela
+            linhas = tabela_vagas.find_all('tr')
             
+            # Pular cabeçalhos e processar linhas de dados
             for linha in linhas:
-                colunas = linha.find_all('td')
-                if len(colunas) >= 8:  # Verificar se tem colunas suficientes
-                    try:
-                        nome_curso = colunas[0].get_text(strip=True)
-                        
-                        # Verificar se é curso de química
-                        if ('028' in nome_curso or '029' in nome_curso or 
-                            'química' in nome_curso.lower() or 
-                            'Química' in nome_curso):
+                colunas = linha.find_all(['td', 'th'])
+                texto_linha = linha.get_text(strip=True).lower()
+                
+                # Verificar se é linha de dados (contém números de vagas)
+                if ('028' in linha.get_text() or '029' in linha.get_text() or 
+                    'química' in texto_linha):
+                    
+                    # Extrair texto de todas as colunas
+                    textos_colunas = [col.get_text(strip=True) for col in colunas]
+                    
+                    # Procurar por padrões de números
+                    if len(textos_colunas) >= 6:
+                        try:
+                            # Padrão 1: [Curso, Vagas Reg, Vagas Vest, Inscritos Reg, Inscritos Vest, ...]
+                            curso_nome = textos_colunas[0]
                             
-                            # Extrair valores
-                            vagas_reg = int(colunas[1].get_text(strip=True) or 0)
-                            vagas_vest = int(colunas[2].get_text(strip=True) or 0)
-                            inscritos_reg = int(colunas[3].get_text(strip=True) or 0)
-                            inscritos_vest = int(colunas[4].get_text(strip=True) or 0)
-                            excedentes = int(colunas[5].get_text(strip=True) or 0)
-                            candidatos = int(colunas[6].get_text(strip=True) or 0)
+                            # Extrair números - pode estar em diferentes formatos
+                            numeros = []
+                            for texto in textos_colunas[1:]:
+                                # Tentar extrair números do texto
+                                matches = re.findall(r'\d+', texto)
+                                if matches:
+                                    numeros.extend([int(m) for m in matches])
                             
-                            vaga_info = {
-                                'curso': nome_curso,
-                                'vagas_reg': vagas_reg,
-                                'vagas_vest': vagas_vest,
-                                'inscritos_reg': inscritos_reg,
-                                'inscritos_vest': inscritos_vest,
-                                'excedentes': excedentes,
-                                'candidatos': candidatos,
-                                'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
-                                'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
-                                'total_vagas': vagas_reg + vagas_vest,
-                                'total_inscritos': inscritos_reg + inscritos_vest,
-                                'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
-                            }
-                            vagas_encontradas.append(vaga_info)
-                    except Exception:
-                        continue
+                            # Se encontrou números suficientes
+                            if len(numeros) >= 4:
+                                vagas_reg = numeros[0] if len(numeros) > 0 else 0
+                                vagas_vest = numeros[1] if len(numeros) > 1 else 0
+                                inscritos_reg = numeros[2] if len(numeros) > 2 else 0
+                                inscritos_vest = numeros[3] if len(numeros) > 3 else 0
+                                excedentes = numeros[4] if len(numeros) > 4 else 0
+                                candidatos = numeros[5] if len(numeros) > 5 else 0
+                                
+                                vaga_info = {
+                                    'curso': curso_nome,
+                                    'vagas_reg': vagas_reg,
+                                    'vagas_vest': vagas_vest,
+                                    'inscritos_reg': inscritos_reg,
+                                    'inscritos_vest': inscritos_vest,
+                                    'excedentes': excedentes,
+                                    'candidatos': candidatos,
+                                    'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
+                                    'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
+                                    'total_vagas': vagas_reg + vagas_vest,
+                                    'total_inscritos': inscritos_reg + inscritos_vest,
+                                    'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
+                                }
+                                vagas_encontradas.append(vaga_info)
+                                
+                        except Exception as e:
+                            st.warning(f"⚠️ Erro ao processar linha de vagas: {e}")
+                            continue
+            
+            # Se não encontrou pelo método padrão, tentar extração direta do texto
+            if not vagas_encontradas:
+                texto_completo = tabela_vagas.get_text()
+                
+                # Padrões para Química (028)
+                padrao_quimica = re.search(r'028.*?Química.*?(\d+).*?(\d+).*?(\d+).*?(\d+)', texto_completo)
+                if padrao_quimica:
+                    vagas_reg = int(padrao_quimica.group(1))
+                    vagas_vest = int(padrao_quimica.group(2)) if padrao_quimica.group(2) else 0
+                    inscritos_reg = int(padrao_quimica.group(3))
+                    inscritos_vest = int(padrao_quimica.group(4)) if padrao_quimica.group(4) else 0
+                    
+                    vaga_info = {
+                        'curso': '028 - Química',
+                        'vagas_reg': vagas_reg,
+                        'vagas_vest': vagas_vest,
+                        'inscritos_reg': inscritos_reg,
+                        'inscritos_vest': inscritos_vest,
+                        'excedentes': 0,
+                        'candidatos': 0,
+                        'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
+                        'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
+                        'total_vagas': vagas_reg + vagas_vest,
+                        'total_inscritos': inscritos_reg + inscritos_vest,
+                        'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
+                    }
+                    vagas_encontradas.append(vaga_info)
+                
+                # Padrões para Química Industrial (029)
+                padrao_industrial = re.search(r'029.*?Química.*?Industrial.*?(\d+).*?(\d+).*?(\d+).*?(\d+)', texto_completo)
+                if padrao_industrial:
+                    vagas_reg = int(padrao_industrial.group(1))
+                    vagas_vest = int(padrao_industrial.group(2)) if padrao_industrial.group(2) else 0
+                    inscritos_reg = int(padrao_industrial.group(3))
+                    inscritos_vest = int(padrao_industrial.group(4)) if padrao_industrial.group(4) else 0
+                    
+                    vaga_info = {
+                        'curso': '029 - Química Industrial',
+                        'vagas_reg': vagas_reg,
+                        'vagas_vest': vagas_vest,
+                        'inscritos_reg': inscritos_reg,
+                        'inscritos_vest': inscritos_vest,
+                        'excedentes': 0,
+                        'candidatos': 0,
+                        'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
+                        'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
+                        'total_vagas': vagas_reg + vagas_vest,
+                        'total_inscritos': inscritos_reg + inscritos_vest,
+                        'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
+                    }
+                    vagas_encontradas.append(vaga_info)
             
             return vagas_encontradas
+            
         except Exception as e:
-            st.warning(f"⚠️ Erro ao extrair vagas: {e}")
+            st.error(f"❌ Erro crítico ao extrair vagas: {e}")
             return []
     
     def extrair_dados_turma_detalhado(self, url_turma, curso_origem, periodo, departamento_busca=None):
-        """Extrai dados detalhados de uma turma específica"""
+        """Extrai dados detalhados de uma turma específica - VERSÃO CORRIGIDA"""
         try:
             response = self.fazer_request(url_turma)
             if not response:
@@ -293,7 +415,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Extrair informações básicas
+            # Extrair informações básicas do título
             titulo = soup.find('h1')
             codigo_disciplina = ''
             nome_disciplina = ''
@@ -302,13 +424,43 @@ class ConsultorQuadroHorariosUFFDetalhado:
             
             if titulo:
                 texto_titulo = titulo.get_text(strip=True)
-                # Padrão: "Turma X de CODIGO - NOME DA DISCIPLINA"
-                match = re.search(r'Turma\s+(\S+)\s+de\s+(\S+)\s+-\s+(.+)', texto_titulo)
-                if match:
-                    turma = match.group(1)
-                    codigo_disciplina = match.group(2)
-                    nome_disciplina = match.group(3)
-                    departamento = codigo_disciplina[:3] if len(codigo_disciplina) >= 3 else ''
+                # Padrões possíveis para o título
+                padroes = [
+                    r'Turma\s+(\S+)\s+de\s+(\S+)\s+-\s+(.+)',  # Turma K1 de MAF00052 - Toxicologia Ocupacional
+                    r'(\S+)\s+-\s+(.+)\s+-\s+Turma\s+(\S+)',   # MAF00052 - Toxicologia Ocupacional - Turma K1
+                    r'(.+?)\s*-\s*Turma\s+(\S+)'              # Toxicologia Ocupacional - Turma K1
+                ]
+                
+                for padrao in padroes:
+                    match = re.search(padrao, texto_titulo)
+                    if match:
+                        if 'Turma' in padrao and 'de' in padrao:
+                            turma = match.group(1)
+                            codigo_disciplina = match.group(2)
+                            nome_disciplina = match.group(3)
+                        elif 'Turma' in padrao:
+                            codigo_disciplina = match.group(1)
+                            nome_disciplina = match.group(2)
+                            turma = match.group(3) if len(match.groups()) > 2 else ''
+                        break
+                
+                # Se não encontrou pelo padrão, tentar extrair de outra forma
+                if not codigo_disciplina:
+                    partes = texto_titulo.split(' - ')
+                    if len(partes) >= 2:
+                        primeira_parte = partes[0]
+                        if 'Turma' in primeira_parte:
+                            turma_match = re.search(r'Turma\s+(\S+)', primeira_parte)
+                            if turma_match:
+                                turma = turma_match.group(1)
+                                if len(partes) > 1:
+                                    segunda_parte = partes[1]
+                                    if len(segunda_parte.split()) > 1:
+                                        partes_codigo = segunda_parte.split()
+                                        codigo_disciplina = partes_codigo[0]
+                                        nome_disciplina = ' '.join(partes_codigo[1:]) if len(partes_codigo) > 1 else segunda_parte
+                        
+                departamento = codigo_disciplina[:3] if len(codigo_disciplina) >= 3 else ''
             
             # Filtrar por departamento se especificado
             if departamento_busca and departamento_busca != 'TODOS' and departamento != departamento_busca:
@@ -321,7 +473,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
             vagas_detalhadas = self.extrair_vagas_detalhadas(soup, curso_origem)
             
             if not vagas_detalhadas:
-                # Se não encontrar vagas detalhadas, criar entrada básica
+                # Criar registro básico se não encontrou vagas
                 registro_basico = {
                     'periodo': periodo,
                     'departamento': departamento,
@@ -379,6 +531,31 @@ class ConsultorQuadroHorariosUFFDetalhado:
             st.warning(f"⚠️ Erro ao processar turma {url_turma}: {e}")
             return []
     
+    def testar_extracao_turma(self, url_turma):
+        """Função para testar a extração de uma turma específica"""
+        response = self.fazer_request(url_turma)
+        if not response:
+            return None
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Extrair título
+        titulo = soup.find('h1')
+        titulo_texto = titulo.get_text(strip=True) if titulo else "Sem título"
+        
+        # Extrair vagas
+        vagas = self.extrair_vagas_detalhadas(soup, "Teste")
+        
+        # Extrair horários
+        horarios = self.extrair_horarios_turma(soup)
+        
+        return {
+            'titulo': titulo_texto,
+            'vagas': vagas,
+            'horarios': horarios,
+            'html_preview': str(soup)[:2000]  # Primeiros 2000 caracteres do HTML
+        }
+    
     def buscar_turmas_detalhadas(self, curso_nome, periodo, departamento=None):
         """Busca turmas detalhadas com todos os dados"""
         st.info(f"🔍 Buscando turmas de {curso_nome} - Período {periodo}" + 
@@ -395,51 +572,78 @@ class ConsultorQuadroHorariosUFFDetalhado:
         links_turmas = self.navegar_paginas(url_busca, curso_nome)
         
         if not links_turmas:
+            st.warning(f"ℹ️ Nenhuma turma encontrada para {curso_nome} no período {periodo}")
             return []
         
         # Processar cada turma detalhadamente
         todas_turmas = []
         total_turmas = len(links_turmas)
         
-        for i, link in enumerate(links_turmas):
-            registros = self.extrair_dados_turma_detalhado(link, curso_nome, periodo, departamento)
-            todas_turmas.extend(registros)
-            
-            # Pequena pausa para não sobrecarregar
-            time.sleep(0.5)
-        
-        return todas_turmas
-    
-    def consultar_vagas_completas(self, periodos, cursos, departamentos):
-        """Consulta completa de vagas com todos os detalhes"""
-        todas_turmas = []
-        
-        total_consultas = len(periodos) * len(cursos) * len(departamentos)
-        consulta_atual = 0
-        
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        for periodo in periodos:
-            for curso in cursos:
-                for depto in departamentos:
-                    if st.session_state.processando == False:
-                        return todas_turmas
-                    
-                    consulta_atual += 1
-                    progresso = consulta_atual / total_consultas
-                    progress_bar.progress(progresso)
-                    
-                    status_text.text(f"🔍 {curso} | 📅 {periodo} | 🏫 {depto or 'Todos'}")
-                    
-                    turmas = self.buscar_turmas_detalhadas(curso, periodo, depto)
-                    todas_turmas.extend(turmas)
+        for i, link in enumerate(links_turmas):
+            status_text.text(f"📋 Processando turma {i+1}/{total_turmas}")
+            
+            registros = self.extrair_dados_turma_detalhado(link, curso_nome, periodo, departamento)
+            todas_turmas.extend(registros)
+            
+            progress_bar.progress((i + 1) / total_turmas)
+            
+            # Pequena pausa para não sobrecarregar
+            time.sleep(0.3)
         
         progress_bar.empty()
         status_text.empty()
         
         return todas_turmas
 
+# ===== FUNÇÃO DE TESTE (adicione esta função à interface) =====
+def testar_extracao_individual():
+    """Testa a extração de uma turma específica"""
+    st.markdown("---")
+    st.subheader("🧪 Teste de Extração Individual")
+    
+    url_teste = st.text_input(
+        "URL da turma para teste:",
+        value="https://app.uff.br/graduacao/quadrodehorarios/turmas/100000427249",
+        help="Cole a URL completa de uma turma para testar a extração"
+    )
+    
+    if st.button("🔬 Testar Extração", type="secondary"):
+        if url_teste:
+            with st.spinner("Testando extração..."):
+                consultor = ConsultorQuadroHorariosUFFDetalhado()
+                resultado = consultor.testar_extracao_turma(url_teste)
+                
+                if resultado:
+                    st.success("✅ Extração concluída!")
+                    
+                    # Mostrar resultados
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**📋 Informações Extraídas:**")
+                        st.write(f"**Título:** {resultado['titulo']}")
+                        st.write(f"**Horários:** {resultado['horarios']}")
+                        
+                        if resultado['vagas']:
+                            st.markdown("**🎓 Vagas Encontradas:**")
+                            for vaga in resultado['vagas']:
+                                st.write(f"- **{vaga['curso']}:**")
+                                st.write(f"  Vagas Reg: {vaga['vagas_reg']} | Inscritos Reg: {vaga['inscritos_reg']}")
+                                st.write(f"  Vagas Vest: {vaga['vagas_vest']} | Inscritos Vest: {vaga['inscritos_vest']}")
+                                st.write(f"  Vagas Disp. Reg: {vaga['vagas_disponiveis_reg']}")
+                                st.write(f"  Vagas Disp. Vest: {vaga['vagas_disponiveis_vest']}")
+                        else:
+                            st.warning("⚠️ Nenhuma vaga encontrada")
+                    
+                    with col2:
+                        st.markdown("**🔍 HTML da Página (amostra):**")
+                        st.code(resultado['html_preview'][:1000], language='html')
+                else:
+                    st.error("❌ Falha na extração")
+                    
 # ===== FUNÇÕES PARA FORMATAÇÃO EXCEL =====
 def aplicar_formatacao_excel(workbook):
     """Aplica formatação profissional ao Excel"""
