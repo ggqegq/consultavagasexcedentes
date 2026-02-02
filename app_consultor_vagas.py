@@ -240,7 +240,8 @@ class ConsultorQuadroHorariosUFFDetalhado:
                 
                 if tabela_horarios:
                     horarios = []
-                    dias_semana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Se
+                    dias_semana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+                    
                     # Encontrar linha de horários (geralmente segunda linha)
                     linhas = tabela_horarios.find_all('tr')
                     if len(linhas) >= 2:
