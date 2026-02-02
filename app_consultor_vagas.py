@@ -662,60 +662,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
             'html_preview': str(soup)[:2000]  # Primeiros 2000 caracteres do HTML
         }
 
-# ===== FUNÇÃO DE TESTE =====
-def testar_extracao_individual():
-    """Testa a extração de uma turma específica"""
-    st.markdown("---")
-    st.subheader("🧪 Teste de Extração Individual")
-    
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        url_teste = st.text_input(
-            "URL da turma para teste:",
-            value="https://app.uff.br/graduacao/quadrodehorarios/turmas/100000427249",
-            help="Cole a URL completa de uma turma para testar a extração"
-        )
-    
-    with col2:
-        apenas_quimica_checkbox = st.checkbox("Apenas Química", value=True, 
-                                             help="Mostrar apenas cursos de Química",
-                                             key="apenas_quimica_test")
-    
-    if st.button("🔬 Testar Extração", type="secondary", key="btn_testar_extracao"):
-        if url_teste:
-            with st.spinner("Testando extração..."):
-                consultor = ConsultorQuadroHorariosUFFDetalhado(apenas_cursos_quimica=apenas_quimica_checkbox)
-                resultado = consultor.testar_extracao_turma(url_teste)
-                
-                if resultado:
-                    st.success("✅ Extração concluída!")
-                    
-                    # Mostrar resultados
-                    col_res1, col_res2 = st.columns(2)
-                    
-                    with col_res1:
-                        st.markdown("**📋 Informações Extraídas:**")
-                        st.write(f"**Título:** {resultado['titulo']}")
-                        st.write(f"**Horários:** {resultado['horarios']}")
-                        
-                        if resultado['vagas']:
-                            st.markdown("**🎓 Vagas Encontradas:**")
-                            for vaga in resultado['vagas']:
-                                st.write(f"- **{vaga['curso']}:**")
-                                st.write(f"  Vagas Reg: {vaga['vagas_reg']} | Inscritos Reg: {vaga['inscritos_reg']}")
-                                st.write(f"  Vagas Vest: {vaga['vagas_vest']} | Inscritos Vest: {vaga['inscritos_vest']}")
-                                st.write(f"  Vagas Disp. Reg: {vaga['vagas_disponiveis_reg']}")
-                                st.write(f"  Vagas Disp. Vest: {vaga['vagas_disponiveis_vest']}")
-                        else:
-                            st.warning("⚠️ Nenhuma vaga encontrada" + 
-                                     (" (filtro 'Apenas Química' ativo)" if apenas_quimica_checkbox else ""))
-                    
-                    with col_res2:
-                        st.markdown("**🔍 HTML da Página (amostra):**")
-                        st.code(resultado['html_preview'][:1000], language='html')
-                else:
-                    st.error("❌ Falha na extração")
+
 
 # ===== FUNÇÕES PARA FORMATAÇÃO EXCEL =====
 def aplicar_formatacao_excel(workbook):
