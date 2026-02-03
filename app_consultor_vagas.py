@@ -1753,6 +1753,7 @@ elif not st.session_state.processando:
             <h3 style="color: #065f46; margin-bottom: 0.5rem;">Disciplina Especifica</h3>
             <p style="color: #334155; margin: 0;">
                 <strong>Formato:</strong> 3 letras + 5 numeros<br>
+                <strong>Formato:</strong> IMPORTANTE: Deixe a opção TODOS departamentos marcada<br>
                 <strong>Exemplos:</strong><br>
                 GQI00061, TEQ00042<br>
                 GMA00159, GFI00025
