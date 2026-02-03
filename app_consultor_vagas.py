@@ -8,7 +8,6 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import io
-import zipfile
 import re
 import requests
 import time
@@ -16,7 +15,6 @@ import json
 from bs4 import BeautifulSoup
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -104,19 +102,23 @@ class ConsultorQuadroHorariosUFFDetalhado:
         self.apenas_cursos_quimica = apenas_cursos_quimica
         self.mostrar_outros_cursos = mostrar_outros_cursos
         
-        # Mapeamento de cursos
+        # Mapeamento de cursos expandido
         self.ids_cursos = {
             'Química': '28',
-            'Química Industrial': '29'
+            'Química Industrial': '29',
+            'Engenharia Química': '27',
+            'Farmácia': '15'
         }
         
         self.cores_cursos = {
             'Química': 'FFE6CC',
-            'Química Industrial': 'E6F3FF'
+            'Química Industrial': 'E6F3FF',
+            'Engenharia Química': 'E6FFE6',
+            'Farmácia': 'FFE6FF'
         }
         
         # Códigos de cursos de química para filtro
-        self.codigos_cursos_quimica = ['028', '029', 'Química', 'Química Industrial']
+        self.codigos_cursos_quimica = ['028', '029', '027', '015', 'Química', 'Química Industrial', 'Engenharia Química', 'Farmácia']
     
     def fazer_request(self, url, use_cache=True):
         """Faz uma requisição HTTP com cache"""
@@ -140,7 +142,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
             st.warning(f"⚠️ Erro ao acessar {url}: {e}")
             return None
     
-    def construir_url_busca(self, id_curso, departamento=None, periodo='20252'):
+    def construir_url_busca(self, id_curso, departamento=None, periodo='20252', codigo_disciplina=None):
         """Constrói URL de busca para o quadro de horários"""
         params = {
             'utf8': '✓',
@@ -155,7 +157,10 @@ class ConsultorQuadroHorariosUFFDetalhado:
             'q[idturmamodalidade_eq]': ''
         }
         
-        if departamento and departamento.strip() and departamento != 'TODOS':
+        if codigo_disciplina:
+            # Se foi fornecido um código de disciplina específico
+            params['q[disciplina_nome_or_disciplina_codigo_cont]'] = codigo_disciplina
+        elif departamento and departamento.strip() and departamento != 'TODOS':
             params['q[disciplina_nome_or_disciplina_codigo_cont]'] = f"{departamento.strip().upper()}00"
         else:
             params['q[disciplina_nome_or_disciplina_codigo_cont]'] = ''
@@ -270,7 +275,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
         return 'Não informado'
     
     def extrair_vagas_detalhadas(self, soup, curso_origem):
-        """Extrai vagas detalhadas da turma - FILTRO APENAS CURSOS QUÍMICA"""
+        """Extrai vagas detalhadas da turma - COM TODOS OS CURSOS QUANDO ATIVADO"""
         try:
             # Procurar tabela de vagas alocadas
             tabela_vagas = None
@@ -309,21 +314,26 @@ class ConsultorQuadroHorariosUFFDetalhado:
             for linha in linhas:
                 texto_linha = linha.get_text(strip=True)
                 
-                # Verificar se é linha que contém dados de curso
-                if any(keyword in texto_linha.lower() for keyword in ['reg', 'vest', 'vagas', 'inscritos']):
-                    # Verificar se esta linha contém um código de curso (padrão: 3 dígitos seguidos)
-                    codigo_match = re.search(r'\b(\d{3})\b', texto_linha)
+                # Verificar se é linha que contém dados de curso (contém números)
+                if re.search(r'\d+', texto_linha):
+                    # Tentar extrair código do curso (padrão: 2-3 dígitos no início da linha)
+                    codigo_match = re.match(r'(\d{2,3})', texto_linha)
                     if codigo_match:
                         codigo_curso = codigo_match.group(1)
                         
-                        # Extrair números da linha
+                        # Extrair todos os números da linha
                         numeros = re.findall(r'\d+', texto_linha)
                         
                         if len(numeros) >= 4:
                             try:
-                                # Extrair nome do curso
-                                nome_curso_match = re.search(r'([A-Za-zÀ-ÿ\s\-]+)', texto_linha)
-                                nome_curso = nome_curso_match.group(1).strip() if nome_curso_match else f"Curso {codigo_curso}"
+                                # Extrair nome do curso (tudo após o código até os números)
+                                partes = re.split(r'\d+', texto_linha, maxsplit=1)
+                                if len(partes) > 1:
+                                    nome_curso = partes[1].strip()
+                                    # Remover números do final
+                                    nome_curso = re.sub(r'\d+$', '', nome_curso).strip()
+                                else:
+                                    nome_curso = f"Curso {codigo_curso}"
                                 
                                 vagas_reg = int(numeros[0]) if len(numeros) > 0 else 0
                                 vagas_vest = int(numeros[1]) if len(numeros) > 1 else 0
@@ -342,25 +352,37 @@ class ConsultorQuadroHorariosUFFDetalhado:
                                 incluir_curso = False
                                 
                                 if self.mostrar_outros_cursos:
-                                    # Se mostrar outros cursos está ativado, incluir todos
+                                    # Se mostrar outros cursos está ativado, incluir TODOS os cursos
                                     incluir_curso = True
                                 elif self.apenas_cursos_quimica:
                                     # Se filtro apenas química está ativo, verificar se é curso de química
-                                    if any(quimica_codigo in codigo_curso for quimica_codigo in ['028', '029']) or \
-                                       'química' in nome_curso.lower():
+                                    if any(quimica_codigo in codigo_curso for quimica_codigo in ['028', '029', '027', '015']) or \
+                                       any(quimica_nome in nome_curso.lower() for quimica_nome in ['química', 'farmácia']):
                                         incluir_curso = True
                                 else:
                                     # Se nenhum filtro está ativo, incluir todos
                                     incluir_curso = True
                                 
                                 if incluir_curso:
+                                    # Formatar nome do curso
+                                    if codigo_curso == '028':
+                                        nome_formatado = f"028 - Química"
+                                    elif codigo_curso == '029':
+                                        nome_formatado = f"029 - Química Industrial"
+                                    elif codigo_curso == '027':
+                                        nome_formatado = f"027 - Engenharia Química"
+                                    elif codigo_curso == '015':
+                                        nome_formatado = f"015 - Farmácia"
+                                    else:
+                                        nome_formatado = f"{codigo_curso} - {nome_curso}"
+                                    
                                     # Calcular excedentes se necessário
                                     if excedentes == 0 and candidatos > 0 and vagas_reg > 0:
                                         if candidatos > vagas_reg:
                                             excedentes = candidatos - vagas_reg
                                     
                                     vaga_info = {
-                                        'curso': f"{codigo_curso} - {nome_curso}",
+                                        'curso': nome_formatado,
                                         'vagas_reg': vagas_reg,
                                         'vagas_vest': vagas_vest,
                                         'inscritos_reg': inscritos_reg,
@@ -377,56 +399,13 @@ class ConsultorQuadroHorariosUFFDetalhado:
                             except Exception as e:
                                 continue
             
-            # Se não encontrou nenhum curso válido, tentar método alternativo
-            if not vagas_encontradas:
-                # Tentar padrões específicos para Química
-                padroes_quimica = [
-                    r'(028.*?Química).*?(\d+).*?(\d+).*?(\d+).*?(\d+).*?(\d+).*?(\d+)',
-                    r'(029.*?Química.*?Industrial).*?(\d+).*?(\d+).*?(\d+).*?(\d+).*?(\d+).*?(\d+)'
-                ]
-                
-                for padrao in padroes_quimica:
-                    match = re.search(padrao, texto_completo, re.IGNORECASE | re.DOTALL)
-                    if match:
-                        nome_curso = match.group(1).strip()
-                        valores = [int(match.group(i)) for i in range(2, len(match.groups()) + 1)]
-                        
-                        if len(valores) >= 4:
-                            vagas_reg = valores[0] if len(valores) > 0 else 0
-                            vagas_vest = valores[1] if len(valores) > 1 else 0
-                            inscritos_reg = valores[2] if len(valores) > 2 else 0
-                            inscritos_vest = valores[3] if len(valores) > 3 else 0
-                            excedentes = valores[4] if len(valores) > 4 else 0
-                            candidatos = valores[5] if len(valores) > 5 else 0
-                            
-                            # Calcular excedentes se necessário
-                            if excedentes == 0 and candidatos > 0 and vagas_reg > 0:
-                                if candidatos > vagas_reg:
-                                    excedentes = candidatos - vagas_reg
-                            
-                            vaga_info = {
-                                'curso': nome_curso,
-                                'vagas_reg': vagas_reg,
-                                'vagas_vest': vagas_vest,
-                                'inscritos_reg': inscritos_reg,
-                                'inscritos_vest': inscritos_vest,
-                                'excedentes': excedentes,
-                                'candidatos': candidatos,
-                                'vagas_disponiveis_reg': max(0, vagas_reg - inscritos_reg),
-                                'vagas_disponiveis_vest': max(0, vagas_vest - inscritos_vest),
-                                'total_vagas': vagas_reg + vagas_vest,
-                                'total_inscritos': inscritos_reg + inscritos_vest,
-                                'total_vagas_disponiveis': max(0, (vagas_reg - inscritos_reg) + (vagas_vest - inscritos_vest))
-                            }
-                            vagas_encontradas.append(vaga_info)
-            
             return vagas_encontradas
             
         except Exception as e:
             st.warning(f"⚠️ Erro ao extrair vagas: {e}")
             return []
     
-    def extrair_dados_turma_detalhado(self, url_turma, curso_origem, periodo, departamento_busca=None):
+    def extrair_dados_turma_detalhado(self, url_turma, curso_origem, periodo, departamento_busca=None, codigo_disciplina_busca=None):
         """Extrai dados detalhados de uma turma específica - SEM DUPLICAÇÃO"""
         try:
             response = self.fazer_request(url_turma)
@@ -484,6 +463,10 @@ class ConsultorQuadroHorariosUFFDetalhado:
             
             # Filtrar por departamento se especificado
             if departamento_busca and departamento_busca != 'TODOS' and departamento != departamento_busca:
+                return []
+            
+            # Filtrar por código de disciplina específico se especificado
+            if codigo_disciplina_busca and codigo_disciplina != codigo_disciplina_busca:
                 return []
             
             # Extrair horários
@@ -556,23 +539,29 @@ class ConsultorQuadroHorariosUFFDetalhado:
             st.warning(f"⚠️ Erro ao processar turma {url_turma}: {e}")
             return []
     
-    def buscar_turmas_detalhadas(self, curso_nome, periodo, departamento=None):
+    def buscar_turmas_detalhadas(self, curso_nome, periodo, departamento=None, codigo_disciplina=None):
         """Busca turmas detalhadas com todos os dados"""
-        st.info(f"🔍 Buscando turmas de {curso_nome} - Período {periodo}" + 
-               (f" - Depto {departamento}" if departamento and departamento != 'TODOS' else ""))
+        if codigo_disciplina:
+            st.info(f"🔍 Buscando disciplina {codigo_disciplina} - Curso {curso_nome} - Período {periodo}")
+        else:
+            st.info(f"🔍 Buscando turmas de {curso_nome} - Período {periodo}" + 
+                   (f" - Depto {departamento}" if departamento and departamento != 'TODOS' else ""))
         
         id_curso = self.ids_cursos.get(curso_nome)
         if not id_curso:
             return []
         
         # Construir URL de busca
-        url_busca = self.construir_url_busca(id_curso, departamento, periodo)
+        url_busca = self.construir_url_busca(id_curso, departamento, periodo, codigo_disciplina)
         
         # Obter todos os links das turmas
         links_turmas = self.navegar_paginas(url_busca, curso_nome)
         
         if not links_turmas:
-            st.warning(f"ℹ️ Nenhuma turma encontrada para {curso_nome} no período {periodo}")
+            if codigo_disciplina:
+                st.warning(f"ℹ️ Nenhuma turma encontrada para {codigo_disciplina} no período {periodo}")
+            else:
+                st.warning(f"ℹ️ Nenhuma turma encontrada para {curso_nome} no período {periodo}")
             return []
         
         # Processar cada turma detalhadamente
@@ -588,7 +577,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
                 
             status_text.text(f"📋 Processando turma {i+1}/{total_turmas}: {link.split('/')[-1]}")
             
-            registros = self.extrair_dados_turma_detalhado(link, curso_nome, periodo, departamento)
+            registros = self.extrair_dados_turma_detalhado(link, curso_nome, periodo, departamento, codigo_disciplina)
             
             # Filtrar para evitar duplicação
             for registro in registros:
@@ -614,7 +603,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
         
         return todas_turmas
     
-    def consultar_vagas_completas(self, periodos, cursos, departamentos):
+    def consultar_vagas_completas(self, periodos, cursos, departamentos, codigo_disciplina=None):
         """Consulta completa de vagas com todos os detalhes - SEM DUPLICAÇÃO"""
         todas_turmas = []
         
@@ -634,9 +623,12 @@ class ConsultorQuadroHorariosUFFDetalhado:
                     progresso = consulta_atual / total_consultas
                     progress_bar.progress(progresso)
                     
-                    status_text.text(f"🔍 {curso} | 📅 {periodo} | 🏫 {depto or 'Todos'}")
+                    if codigo_disciplina:
+                        status_text.text(f"🔍 {curso} | 📅 {periodo} | 📚 {codigo_disciplina}")
+                    else:
+                        status_text.text(f"🔍 {curso} | 📅 {periodo} | 🏫 {depto or 'Todos'}")
                     
-                    turmas = self.buscar_turmas_detalhadas(curso, periodo, depto)
+                    turmas = self.buscar_turmas_detalhadas(curso, periodo, depto, codigo_disciplina)
                     
                     # Adicionar turmas, evitando duplicação
                     for turma in turmas:
@@ -672,6 +664,8 @@ def aplicar_formatacao_excel(workbook):
     
     fill_quimica = PatternFill(start_color="FFE6CC", end_color="FFE6CC", fill_type="solid")
     fill_quimica_industrial = PatternFill(start_color="E6F3FF", end_color="E6F3FF", fill_type="solid")
+    fill_engenharia_quimica = PatternFill(start_color="E6FFE6", end_color="E6FFE6", fill_type="solid")
+    fill_farmacia = PatternFill(start_color="FFE6FF", end_color="FFE6FF", fill_type="solid")
     fill_excedente = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
     font_excedente = Font(color="CC0000", bold=True)
     
@@ -712,10 +706,14 @@ def aplicar_formatacao_excel(workbook):
                 curso_cell = ws.cell(row=row, column=7)  # Coluna G = curso_vaga
                 if curso_cell.value:
                     curso_str = str(curso_cell.value)
-                    if '028' in curso_str or ('Química' in curso_str and 'Industrial' not in curso_str):
+                    if '028' in curso_str:
                         fill_color = fill_quimica
-                    elif '029' in curso_str or 'Química Industrial' in curso_str:
+                    elif '029' in curso_str:
                         fill_color = fill_quimica_industrial
+                    elif '027' in curso_str:
+                        fill_color = fill_engenharia_quimica
+                    elif '015' in curso_str:
+                        fill_color = fill_farmacia
                     else:
                         fill_color = None
                     
@@ -901,6 +899,14 @@ def validar_departamento(depto):
     if len(depto) == 3 and depto.isalpha():
         return True
     return False
+
+def validar_codigo_disciplina(codigo):
+    """Valida formato do código de disciplina"""
+    if not codigo or codigo == '':
+        return True
+    # Padrão: 3 letras seguidas de 5 números
+    padrao = r'^[A-Z]{3}\d{5}$'
+    return bool(re.match(padrao, codigo.upper()))
 
 def criar_visualizacoes(df):
     """Cria visualizações gráficas dos dados"""
@@ -1205,10 +1211,29 @@ with st.sidebar:
     
     cursos_selecionados = st.multiselect(
         "Selecione os cursos:",
-        options=['Química', 'Química Industrial'],
+        options=['Química', 'Química Industrial', 'Engenharia Química', 'Farmácia'],
         default=['Química', 'Química Industrial'],
         key="cursos_selecionados"
     )
+    
+    st.markdown("---")
+    st.subheader("📚 Disciplina Específica (opcional)")
+    
+    # Opção para buscar disciplina específica
+    codigo_disciplina = st.text_input(
+        "Digite o código da disciplina (ex: GQI00061):",
+        value="",
+        help="Formato: 3 letras + 5 números (ex: GQI00061). Deixe em branco para buscar todas as disciplinas.",
+        key="codigo_disciplina"
+    )
+    
+    if codigo_disciplina:
+        codigo_disciplina = codigo_disciplina.strip().upper()
+        if validar_codigo_disciplina(codigo_disciplina):
+            st.success(f"✅ Código válido: {codigo_disciplina}")
+        else:
+            st.error("❌ Código inválido. Use 3 letras + 5 números (ex: GQI00061)")
+            codigo_disciplina = ""
     
     st.markdown("---")
     st.subheader("🏫 Departamentos")
@@ -1223,10 +1248,10 @@ with st.sidebar:
     departamentos_selecionados = []
     
     if modo_departamento == 'Lista pré-definida':
-        # Departamentos comuns
+        # Departamentos comuns do Instituto de Química
         departamentos_opcoes = [
-            'TODOS', 'GQI', 'GFI', 'MAF', 'FIS', 'BIO', 'MAT', 
-            'GEC', 'GEO', 'GEA', 'GFB', 'GCN', 'GCO'
+            'TODOS', 'GGQ', 'GQI', 'GQA', 'GQO', 'GFQ', 'GEO', 'GMA', 'GFI', 
+            'SSE', 'TEQ', 'TEP', 'TDT', 'SFP', 'GLC', 'GGM', 'MTC', 'GCM'
         ]
         
         departamentos_selecionados = st.multiselect(
@@ -1241,7 +1266,7 @@ with st.sidebar:
             "Digite o código do departamento (3 letras):",
             value="GQI",
             max_chars=3,
-            help="Ex: GQI, MAF, FIS, BIO, etc.",
+            help="Ex: GQI, GGQ, GQA, etc.",
             key="depto_input"
         )
         
@@ -1264,7 +1289,7 @@ with st.sidebar:
         apenas_cursos_quimica_checkbox = st.checkbox(
             "Mostrar apenas cursos de Química", 
             value=st.session_state.apenas_cursos_quimica,
-            help="Filtrar para mostrar apenas vagas dos cursos 028 (Química) e 029 (Química Industrial)",
+            help="Filtrar para mostrar apenas vagas dos cursos 028 (Química), 029 (Química Industrial), 027 (Eng. Química) e 015 (Farmácia)",
             key="apenas_cursos_quimica_checkbox"
         )
         
@@ -1275,7 +1300,7 @@ with st.sidebar:
         mostrar_outros_cursos_checkbox = st.checkbox(
             "Mostrar também vagas de outros cursos", 
             value=st.session_state.mostrar_outros_cursos,
-            help="Mostrar vagas de todos os cursos, não apenas dos cursos selecionados",
+            help="Mostrar vagas de TODOS os cursos, não apenas dos cursos selecionados",
             key="mostrar_outros_cursos_checkbox"
         )
         
@@ -1313,6 +1338,7 @@ with st.sidebar:
     - Cada período é processado separadamente
     - Os dados são extraídos em tempo real do sistema UFF
     - Excedentes são calculados automaticamente quando candidatos > vagas regulares
+    - Use o código da disciplina para buscar uma disciplina específica
     """)
 
 # Área principal - Processamento
@@ -1340,12 +1366,16 @@ if btn_consultar and periodos_formatados and cursos_selecionados:
             if not deptos_consulta:
                 deptos_consulta = [None]
             
+            # Preparar código de disciplina se especificado
+            codigo_disc_busca = codigo_disciplina if codigo_disciplina else None
+            
             st.info(f"""
             **🎯 Consulta Configurada:**
             - 📅 Períodos: {', '.join([formatar_periodo(p) for p in periodos_formatados])}
             - 🎓 Cursos: {', '.join(cursos_selecionados)}
             - 🏫 Departamentos: {', '.join([d if d else 'Todos' for d in departamentos_selecionados])}
-            - 🔍 Filtro: {'Apenas cursos de Química' if st.session_state.apenas_cursos_quimica else 'Todos os cursos'}
+            - 📚 Disciplina: {codigo_disciplina if codigo_disciplina else 'Todas'}
+            - 🔍 Filtro: {'Apenas cursos de Química/Farmácia' if st.session_state.apenas_cursos_quimica else 'Todos os cursos'}
             - 🔍 Mostrar outros cursos: {'Sim' if st.session_state.mostrar_outros_cursos else 'Não'}
             """)
             
@@ -1358,7 +1388,8 @@ if btn_consultar and periodos_formatados and cursos_selecionados:
             dados = consultor.consultar_vagas_completas(
                 periodos=periodos_formatados,
                 cursos=cursos_selecionados,
-                departamentos=deptos_consulta
+                departamentos=deptos_consulta,
+                codigo_disciplina=codigo_disc_busca
             )
             
             if dados:
@@ -1440,50 +1471,23 @@ if st.session_state.resultado_disponivel and st.session_state.dados_turmas is no
     # Visualizações
     criar_visualizacoes(df)
     
-    # Exportação
+    # Exportação (APENAS EXCEL)
     st.markdown("---")
     st.subheader("📥 Exportar Resultados")
     
-    col_exp1, col_exp2, col_exp3 = st.columns(3)
-    
-    with col_exp1:
-        # Exportar Excel Completo
-        excel_buffer = gerar_excel_completo(df, periodo_formatado)
-        if excel_buffer:
-            st.download_button(
-                label="📊 Baixar Excel Completo",
-                data=excel_buffer,
-                file_name=f"vagas_uff_detalhado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-                key="btn_download_excel"
-            )
-        else:
-            st.warning("⚠️ Nenhum dado para exportar em Excel")
-    
-    with col_exp2:
-        # Exportar CSV
-        csv = df.to_csv(index=False, encoding='utf-8-sig')
+    # Exportar Excel Completo
+    excel_buffer = gerar_excel_completo(df, periodo_formatado)
+    if excel_buffer:
         st.download_button(
-            label="📄 Baixar CSV",
-            data=csv,
-            file_name=f"vagas_uff_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv",
+            label="📊 Baixar Excel Completo",
+            data=excel_buffer,
+            file_name=f"vagas_uff_detalhado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
-            key="btn_download_csv"
+            key="btn_download_excel"
         )
-    
-    with col_exp3:
-        # Exportar JSON
-        json_data = df.to_json(orient='records', indent=2, force_ascii=False)
-        st.download_button(
-            label="🔤 Baixar JSON",
-            data=json_data,
-            file_name=f"vagas_uff_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-            mime="application/json",
-            use_container_width=True,
-            key="btn_download_json"
-        )
+    else:
+        st.warning("⚠️ Nenhum dado para exportar em Excel")
     
     # Tabela interativa completa
     st.markdown("---")
@@ -1578,7 +1582,7 @@ elif not st.session_state.processando:
         
         **✅ Consulta Sem Duplicação:**
         - Dados únicos por turma e curso
-        - Filtro para mostrar apenas cursos de Química
+        - Filtro para mostrar apenas cursos de Química/Farmácia
         - Evita registros duplicados
         
         **✅ Departamentos Flexíveis:**
@@ -1586,20 +1590,26 @@ elif not st.session_state.processando:
         - Aceita qualquer código de 3 letras
         - Retorna mensagem clara se não houver resultados
         
+        **✅ Disciplina Específica:**
+        - Busque uma disciplina específica pelo código (ex: GQI00061)
+        - Formato: 3 letras + 5 números
+        
         **✅ Excedentes Automáticos:**
         - Calcula automaticamente excedentes quando candidatos > vagas regulares
         - Destaca excedentes em vermelho na planilha
         - Nova aba específica para turmas com excedentes
         
         **✅ Exportação Completa:**
-        - Excel com múltiplas abas (igual ao Colab)
+        - Excel com múltiplas abas
         - Formatação profissional com cores
         - Estatísticas detalhadas incluindo excedentes
-        - Dados brutos em CSV/JSON
+        - Abas específicas para diferentes tipos de análise
         
         ### 🎓 **Cursos Suportados:**
         - 🧪 **Bacharelado em Química** (Código 028)
         - 🏭 **Bacharelado em Química Industrial** (Código 029)
+        - 🔬 **Engenharia Química** (Código 027)
+        - 💊 **Farmácia** (Código 015)
         """)
     
     with col_intro2:
@@ -1608,11 +1618,12 @@ elif not st.session_state.processando:
         
         1. **📅 Digite o período** (ex: 2026.1)
         2. **🎓 Selecione os cursos**
-        3. **🏫 Escolha departamentos** (lista ou digite)
-        4. **⚙️ Configure filtros** (apenas Química, outros cursos, etc.)
-        5. **🔍 Clique em Consultar Vagas**
-        6. **📊 Analise os resultados**
-        7. **📥 Exporte os dados**
+        3. **📚 (Opcional) Digite código da disciplina**
+        4. **🏫 Escolha departamentos** (lista ou digite)
+        5. **⚙️ Configure filtros** (apenas Química, outros cursos, etc.)
+        6. **🔍 Clique em Consultar Vagas**
+        7. **📊 Analise os resultados**
+        8. **📥 Exporte os dados em Excel**
         
         ## ⚠️ **Importante:**
         
@@ -1636,7 +1647,7 @@ elif not st.session_state.processando:
         |-------|-----------|---------|
         | **periodo** | Período letivo | 20252 |
         | **departamento** | Código do departamento | GQI |
-        | **codigo_disciplina** | Código da disciplina | GQI0001 |
+        | **codigo_disciplina** | Código da disciplina | GQI00061 |
         | **nome_disciplina** | Nome da disciplina | Química Geral |
         | **turma** | Identificação da turma | A01 |
         | **horarios** | Horários das aulas | Segunda: 08-10h \| Quarta: 10-12h |
