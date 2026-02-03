@@ -49,7 +49,7 @@ st.markdown("""
     .main-header {
     font-size: 2.5rem;
     font-weight: 800;
-    color: #ffffff;
+    color: #a8d0e6;
     margin-bottom: 0.5rem;
     letter-spacing: -0.5px;
     text-shadow: 0 0 6px rgba(255,255,255,0.3);
