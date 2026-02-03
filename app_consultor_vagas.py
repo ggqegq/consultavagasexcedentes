@@ -1354,7 +1354,7 @@ st.markdown("""
 with st.sidebar:
     st.markdown("""
     <div style="text-align: center; padding: 1rem 0; margin-bottom: 1rem;">
-        <h2 style="color: #1e3a5f; margin: 0; font-size: 1.5rem; font-weight: 700;">Configuracoes</h2>
+        <h2 style="color: #1e3a5f; margin: 0; font-size: 1.5rem; font-weight: 700;">Configurações</h2>
         <div style="height: 3px; background: linear-gradient(90deg, transparent, #3b82f6, transparent); margin-top: 0.5rem;"></div>
     </div>
     """, unsafe_allow_html=True)
