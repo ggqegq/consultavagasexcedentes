@@ -23,7 +23,7 @@ warnings.filterwarnings('ignore')
 
 # ===== CONFIGURAÇÃO DA PÁGINA =====
 st.set_page_config(
-    page_title="Consultor de Vagas e Excedentes IQ/UFF - Química",
+    page_title="Consultor de Vagas e Excedentes UFF - Química",
     page_icon="🧪",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -1344,7 +1344,7 @@ def criar_visualizacoes(df):
 # ===== INTERFACE PRINCIPAL =====
 st.markdown("""
 <div class="main-header-container">
-    <h1 class="main-header">Consultor de Vagas e Excedentes UFF</h1>
+    <h1 class="main-header">Consultor de Vagas e Excedentes - UFF</h1>
     <p class="sub-header">Instituto de Quimica - Sistema de Consulta Detalhada de Turmas</p>
     <p class="developer-credit">Desenvolvido por <span class="developer-name">Tadeu L. Araujo</span> (GGQ)</p>
 </div>
