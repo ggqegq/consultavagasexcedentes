@@ -1517,7 +1517,7 @@ with st.sidebar:
         <p style="color: #1e293b; font-size: 0.9rem; margin: 0;">
             <strong style="color: #1e3a5f;">Dicas:</strong><br>
             - A consulta pode levar alguns minutos<br>
-            - Para disciplina especifica, use o codigo completo (ex: GQI00061)<br>
+            - Para disciplina especifica, use o codigo completo (ex: GQI00061) e deixe a opção TODOS departamentos marcada<br>
             - Os dados sao extraidos em tempo real
         </p>
     </div>
