@@ -46,14 +46,18 @@ st.markdown("""
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
         text-align: center;
     }
-    .main-header {
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: #a8d0e6;
-    margin-bottom: 0.5rem;
-    letter-spacing: -0.5px;
-    text-shadow: 0 0 6px rgba(255,255,255,0.3);
-}
+   .main-header {
+        font-size: 2.2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-align: center;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem 0;
+    }
+
 
     .sub-header {
         font-size: 1.15rem;
