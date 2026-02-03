@@ -109,23 +109,23 @@ st.markdown("""
     
     /* ===== SIDEBAR ===== */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+        background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
     }
     section[data-testid="stSidebar"] .stMarkdown {
-        color: #e2e8f0;
+        color: #1e293b;
     }
     section[data-testid="stSidebar"] h1, 
     section[data-testid="stSidebar"] h2, 
     section[data-testid="stSidebar"] h3 {
-        color: #f1f5f9 !important;
+        color: #1e3a5f !important;
     }
     section[data-testid="stSidebar"] label {
-        color: #cbd5e1 !important;
+        color: #334155 !important;
     }
     section[data-testid="stSidebar"] .stSelectbox label,
     section[data-testid="stSidebar"] .stMultiSelect label,
     section[data-testid="stSidebar"] .stTextInput label {
-        color: #94a3b8 !important;
+        color: #475569 !important;
         font-weight: 500;
     }
     
@@ -343,16 +343,17 @@ class ConsultorQuadroHorariosUFFDetalhado:
     
     def _gerar_codigos_filtro(self):
         """Gera lista de códigos de curso para filtro baseado nos cursos selecionados"""
-        codigos = []
+        # Retorna apenas os códigos numéricos dos cursos selecionados
         mapeamento = {
-            'Química': ['028', 'Química'],
-            'Química Industrial': ['029', 'Química Industrial'],
-            'Engenharia Química': ['027', 'Engenharia Química'],
-            'Farmácia': ['015', 'Farmácia']
+            'Química': '028',
+            'Química Industrial': '029',
+            'Engenharia Química': '027',
+            'Farmácia': '015'
         }
+        codigos = []
         for curso in self.cursos_selecionados:
             if curso in mapeamento:
-                codigos.extend(mapeamento[curso])
+                codigos.append(mapeamento[curso])
         return codigos
     
     def fazer_request(self, url, use_cache=True):
@@ -599,17 +600,16 @@ class ConsultorQuadroHorariosUFFDetalhado:
                                 excedentes = numeros[4] if len(numeros) > 4 else 0
                                 candidatos = numeros[5] if len(numeros) > 5 else 0
                             
-                            # Aplicar filtros
+                            # Aplicar filtros - usa comparacao exata de codigos
                             incluir_curso = False
                             
                             if self.mostrar_outros_cursos:
                                 incluir_curso = True
                             elif self.apenas_cursos_quimica:
+                                # Comparacao exata: codigo do curso deve estar na lista de codigos permitidos
                                 codigo_padrao = codigo_curso.zfill(3)
-                                for codigo_filtro in self.codigos_cursos_filtro:
-                                    if codigo_padrao in codigo_filtro or codigo_filtro.lower() in nome_curso.lower():
-                                        incluir_curso = True
-                                        break
+                                if codigo_padrao in self.codigos_cursos_filtro:
+                                    incluir_curso = True
                             else:
                                 incluir_curso = True
                             
@@ -867,10 +867,9 @@ def aplicar_formatacao_excel(workbook):
     center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
     left_align = Alignment(horizontal='left', vertical='center', wrap_text=True)
     
+    # Cores apenas para Quimica e Quimica Industrial
     fill_quimica = PatternFill(start_color="FFE6CC", end_color="FFE6CC", fill_type="solid")
     fill_quimica_industrial = PatternFill(start_color="E6F3FF", end_color="E6F3FF", fill_type="solid")
-    fill_engenharia = PatternFill(start_color="E6FFE6", end_color="E6FFE6", fill_type="solid")
-    fill_farmacia = PatternFill(start_color="FFE6FF", end_color="FFE6FF", fill_type="solid")
     fill_excedente = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
     font_excedente = Font(color="CC0000", bold=True)
     
@@ -901,21 +900,21 @@ def aplicar_formatacao_excel(workbook):
                         else:
                             cell.alignment = left_align
         
+        # Aplicar cores apenas para Quimica (028) e Quimica Industrial (029)
         if ws.max_row > 1:
             for row in range(2, ws.max_row + 1):
                 curso_cell = ws.cell(row=row, column=7)
                 if curso_cell.value:
                     curso_str = str(curso_cell.value)
-                    if '028' in curso_str or ('Química' in curso_str and 'Industrial' not in curso_str and 'Engenharia' not in curso_str):
+                    fill_color = None
+                    
+                    # Verifica se e exatamente Quimica (028) - nao pode ter Industrial nem Engenharia
+                    if curso_str.startswith('028') or (curso_str.endswith('Química') and 'Industrial' not in curso_str and 'Engenharia' not in curso_str):
                         fill_color = fill_quimica
-                    elif '029' in curso_str or 'Química Industrial' in curso_str:
+                    # Verifica se e exatamente Quimica Industrial (029)
+                    elif curso_str.startswith('029') or 'Química Industrial' in curso_str:
                         fill_color = fill_quimica_industrial
-                    elif '027' in curso_str or 'Engenharia' in curso_str:
-                        fill_color = fill_engenharia
-                    elif '015' in curso_str or 'Farmácia' in curso_str:
-                        fill_color = fill_farmacia
-                    else:
-                        fill_color = None
+                    # Demais cursos ficam sem cor (fundo branco)
                     
                     if fill_color:
                         for col in range(1, ws.max_column + 1):
@@ -1350,7 +1349,7 @@ st.markdown("""
 with st.sidebar:
     st.markdown("""
     <div style="text-align: center; padding: 1rem 0; margin-bottom: 1rem;">
-        <h2 style="color: #f1f5f9; margin: 0; font-size: 1.5rem;">Configuracoes</h2>
+        <h2 style="color: #1e3a5f; margin: 0; font-size: 1.5rem; font-weight: 700;">Configuracoes</h2>
         <div style="height: 3px; background: linear-gradient(90deg, transparent, #3b82f6, transparent); margin-top: 0.5rem;"></div>
     </div>
     """, unsafe_allow_html=True)
@@ -1509,9 +1508,9 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("""
-    <div style="background: rgba(59, 130, 246, 0.1); border-radius: 10px; padding: 1rem; border-left: 3px solid #3b82f6;">
-        <p style="color: #e2e8f0; font-size: 0.9rem; margin: 0;">
-            <strong style="color: #60a5fa;">Dicas:</strong><br>
+    <div style="background: linear-gradient(145deg, #eff6ff, #dbeafe); border-radius: 10px; padding: 1rem; border-left: 3px solid #3b82f6;">
+        <p style="color: #1e293b; font-size: 0.9rem; margin: 0;">
+            <strong style="color: #1e3a5f;">Dicas:</strong><br>
             - A consulta pode levar alguns minutos<br>
             - Para disciplina especifica, use o codigo completo (ex: GQI00061)<br>
             - Os dados sao extraidos em tempo real
