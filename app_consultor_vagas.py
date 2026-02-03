@@ -1800,7 +1800,7 @@ st.markdown(f"""
     <p class="footer-text">
         <strong>Consultor de Vagas e Excedentes UFF</strong> - Instituto de Quimica<br>
         Desenvolvido por <span class="footer-highlight">Tadeu L. Araujo (GGQ)</span><br>
-        Versao: 1.0 {datetime.now().strftime('%d/%m/%Y')}
+        Versão: 1.0 ({datetime.now().strftime('%d/%m/%Y')})
     </p>
 </div>
 """, unsafe_allow_html=True)
