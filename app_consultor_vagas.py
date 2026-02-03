@@ -29,85 +29,260 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ===== ESTILOS CSS MELHORADOS =====
+# ===== ESTILOS CSS MODERNOS =====
 st.markdown("""
 <style>
-    /* Header principal */
+    /* ===== TEMA GERAL ===== */
+    .stApp {
+        background: linear-gradient(180deg, #f0f4f8 0%, #ffffff 100%);
+    }
+    
+    /* ===== HEADER PRINCIPAL ===== */
+    .main-header-container {
+        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        text-align: center;
+    }
     .main-header {
-        font-size: 2.2rem;
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #ffffff;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.5px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    .sub-header {
+        font-size: 1.15rem;
+        color: #a8d0e6;
+        margin-bottom: 0.25rem;
+        font-weight: 400;
+    }
+    .developer-credit {
+        font-size: 0.95rem;
+        color: #7eb8da;
+        margin-top: 0.5rem;
+    }
+    .developer-name {
         font-weight: 700;
-        background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+        color: #f0c674;
+    }
+    
+    /* ===== CARDS DE ESTATISTICAS ===== */
+    .stat-card {
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 16px;
+        padding: 1.5rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #1e3a5f 0%, #4a90e2 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        text-align: center;
-        margin-bottom: 0.5rem;
-        padding: 0.5rem 0;
     }
-    .sub-header {
-        font-size: 1.1rem;
-        color: #555;
-        text-align: center;
-        margin-bottom: 0.3rem;
-    }
-    .developer-name {
-        font-weight: 600;
-        color: #1e3a5f;
-    }
-    
-    /* Cards de métricas */
-    .metric-card {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 12px;
-        padding: 1.2rem;
-        border-left: 4px solid #1e3a5f;
-        margin-bottom: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-    
-    /* Barra de progresso */
-    .stProgress > div > div > div > div {
-        background: linear-gradient(90deg, #1e3a5f 0%, #4a90e2 100%);
-    }
-    
-    /* Sidebar */
-    .css-1d391kg {
-        background-color: #f8f9fa;
-    }
-    
-    /* Botões */
-    .stButton > button {
-        border-radius: 8px;
+    .stat-label {
+        font-size: 0.9rem;
+        color: #64748b;
         font-weight: 500;
-        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 0.5rem;
     }
     
-    .stButton > button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    
-    /* Excedentes em vermelho */
-    .excedente-vermelho {
-        background-color: #ffcccc !important;
-        color: #cc0000 !important;
-        font-weight: bold;
-    }
-    
-    /* Divisor customizado */
-    .custom-divider {
-        height: 2px;
-        background: linear-gradient(90deg, transparent, #1e3a5f, transparent);
-        margin: 1.5rem 0;
-    }
-    
-    /* Info box */
-    .info-box {
-        background-color: #e8f4fd;
+    /* ===== BARRA DE PROGRESSO ===== */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #1e3a5f 0%, #3b82f6 50%, #60a5fa 100%);
         border-radius: 10px;
-        padding: 1rem;
-        border-left: 4px solid #4a90e2;
+    }
+    
+    /* ===== SIDEBAR ===== */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    }
+    section[data-testid="stSidebar"] .stMarkdown {
+        color: #e2e8f0;
+    }
+    section[data-testid="stSidebar"] h1, 
+    section[data-testid="stSidebar"] h2, 
+    section[data-testid="stSidebar"] h3 {
+        color: #f1f5f9 !important;
+    }
+    section[data-testid="stSidebar"] label {
+        color: #cbd5e1 !important;
+    }
+    section[data-testid="stSidebar"] .stSelectbox label,
+    section[data-testid="stSidebar"] .stMultiSelect label,
+    section[data-testid="stSidebar"] .stTextInput label {
+        color: #94a3b8 !important;
+        font-weight: 500;
+    }
+    
+    /* ===== BOTOES ===== */
+    .stButton > button {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        transition: all 0.3s ease;
+        border: none;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
+        color: white;
+    }
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+    }
+    .stDownloadButton > button {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+        color: white !important;
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 0.75rem 2rem;
+        border: none;
+    }
+    .stDownloadButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+    }
+    
+    /* ===== TABS ===== */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: #f1f5f9;
+        padding: 8px;
+        border-radius: 12px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 600;
+        color: #475569;
+    }
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
+        color: white !important;
+    }
+    
+    /* ===== DIVISOR ===== */
+    .custom-divider {
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #3b82f6, #1e3a5f, #3b82f6, transparent);
+        margin: 2rem 0;
+        border-radius: 2px;
+    }
+    
+    /* ===== ALERTAS ===== */
+    .stAlert {
+        border-radius: 12px;
+        border: none;
+    }
+    
+    /* ===== DATAFRAME ===== */
+    .stDataFrame {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* ===== METRICAS ===== */
+    [data-testid="stMetricValue"] {
+        font-size: 2rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.85rem;
+    }
+    
+    /* ===== EXPANDER ===== */
+    .streamlit-expanderHeader {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 12px;
+        font-weight: 600;
+        color: #334155;
+    }
+    
+    /* ===== CARDS INFO ===== */
+    .info-card {
+        background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+        border-radius: 16px;
+        padding: 1.5rem;
+        border-left: 5px solid #3b82f6;
         margin: 1rem 0;
+    }
+    .warning-card {
+        background: linear-gradient(145deg, #fef3c7 0%, #fde68a 100%);
+        border-radius: 16px;
+        padding: 1.5rem;
+        border-left: 5px solid #f59e0b;
+        margin: 1rem 0;
+    }
+    .success-card {
+        background: linear-gradient(145deg, #d1fae5 0%, #a7f3d0 100%);
+        border-radius: 16px;
+        padding: 1.5rem;
+        border-left: 5px solid #10b981;
+        margin: 1rem 0;
+    }
+    
+    /* ===== FOOTER ===== */
+    .footer-container {
+        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+        text-align: center;
+        box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.1);
+    }
+    .footer-text {
+        color: #a8d0e6;
+        font-size: 0.95rem;
+    }
+    .footer-highlight {
+        color: #f0c674;
+        font-weight: 700;
+    }
+    
+    /* ===== ANIMACOES ===== */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+    
+    /* ===== SECOES ===== */
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 3px solid #3b82f6;
+        display: inline-block;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -353,48 +528,65 @@ class ConsultorQuadroHorariosUFFDetalhado:
                 return []
             
             vagas_encontradas = []
-            texto_completo = tabela_vagas.get_text()
-            
             linhas = tabela_vagas.find_all('tr')
             
             for linha in linhas:
                 colunas = linha.find_all(['td', 'th'])
-                texto_linha = linha.get_text(strip=True)
                 
-                # Verificar se é linha de dados
+                # Verificar se é linha de dados (precisa de pelo menos 4 colunas numéricas)
                 if len(colunas) >= 4:
-                    # Tentar extrair código e nome do curso
-                    codigo_curso = None
-                    nome_curso = None
+                    # A primeira coluna geralmente contém "código - nome do curso"
+                    primeira_coluna = colunas[0].get_text(strip=True) if colunas else ""
                     
-                    for col in colunas:
-                        texto_col = col.get_text(strip=True)
-                        # Procurar código de 3 dígitos
-                        codigo_match = re.search(r'\b(\d{3})\b', texto_col)
-                        if codigo_match and not codigo_curso:
+                    # Padrão esperado: "028 - Química" ou "029 - Química Industrial"
+                    match_curso = re.match(r'^(\d{3})\s*-\s*(.+)$', primeira_coluna)
+                    
+                    if match_curso:
+                        codigo_curso = match_curso.group(1)
+                        nome_curso = match_curso.group(2).strip()
+                        curso_completo = f"{codigo_curso} - {nome_curso}"
+                    else:
+                        # Tentar extrair código de 3 dígitos de outra forma
+                        codigo_match = re.search(r'\b(\d{3})\b', primeira_coluna)
+                        if codigo_match:
                             codigo_curso = codigo_match.group(1)
-                        # Procurar nome do curso
-                        if any(nome in texto_col.lower() for nome in ['química', 'farmácia', 'engenharia']):
-                            nome_curso = texto_col
+                            # Verificar se há nome após o código
+                            resto = primeira_coluna.replace(codigo_curso, '').strip()
+                            resto = re.sub(r'^[\s\-]+', '', resto).strip()
+                            if resto and not resto.isdigit():
+                                nome_curso = resto
+                                curso_completo = f"{codigo_curso} - {nome_curso}"
+                            else:
+                                # Usar mapeamento de nomes conhecidos
+                                nomes_conhecidos = {
+                                    '028': 'Química',
+                                    '029': 'Química Industrial',
+                                    '027': 'Engenharia Química',
+                                    '015': 'Farmácia',
+                                    '025': 'Física',
+                                    '020': 'Matemática',
+                                    '041': 'Engenharia de Telecomunicações',
+                                    '042': 'Engenharia de Produção',
+                                    '043': 'Engenharia Civil',
+                                    '044': 'Engenharia Mecânica',
+                                    '045': 'Engenharia Elétrica',
+                                }
+                                nome_curso = nomes_conhecidos.get(codigo_curso, f"Curso {codigo_curso}")
+                                curso_completo = f"{codigo_curso} - {nome_curso}"
+                        else:
+                            continue
                     
-                    if not codigo_curso:
-                        continue
-                    
-                    # Extrair todos os números da linha
+                    # Extrair números das demais colunas (vagas, inscritos, etc.)
                     numeros = []
-                    for col in colunas:
+                    for i, col in enumerate(colunas[1:], 1):  # Pular primeira coluna (curso)
                         texto_col = col.get_text(strip=True)
                         # Extrair números individuais
                         nums = re.findall(r'\b(\d+)\b', texto_col)
                         for n in nums:
-                            if n != codigo_curso:  # Não incluir o código do curso
-                                numeros.append(int(n))
+                            numeros.append(int(n))
                     
                     if len(numeros) >= 4:
                         try:
-                            if not nome_curso:
-                                nome_curso = f"Curso {codigo_curso}"
-                            
                             vagas_reg = numeros[0] if len(numeros) > 0 else 0
                             vagas_vest = numeros[1] if len(numeros) > 1 else 0
                             inscritos_reg = numeros[2] if len(numeros) > 2 else 0
@@ -407,17 +599,15 @@ class ConsultorQuadroHorariosUFFDetalhado:
                                 excedentes = numeros[4] if len(numeros) > 4 else 0
                                 candidatos = numeros[5] if len(numeros) > 5 else 0
                             
-                            # Aplicar filtros - CORRIGIDO
+                            # Aplicar filtros
                             incluir_curso = False
                             
                             if self.mostrar_outros_cursos:
-                                # Se mostrar outros cursos está ativado, incluir todos
                                 incluir_curso = True
                             elif self.apenas_cursos_quimica:
-                                # Verificar se o curso está na lista de cursos selecionados
-                                codigo_padrao = codigo_curso.zfill(3)  # Garantir 3 dígitos
+                                codigo_padrao = codigo_curso.zfill(3)
                                 for codigo_filtro in self.codigos_cursos_filtro:
-                                    if codigo_padrao in codigo_filtro or codigo_filtro in nome_curso.lower():
+                                    if codigo_padrao in codigo_filtro or codigo_filtro.lower() in nome_curso.lower():
                                         incluir_curso = True
                                         break
                             else:
@@ -429,7 +619,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
                                         excedentes = candidatos - vagas_reg
                                 
                                 vaga_info = {
-                                    'curso': f"{codigo_curso} - {nome_curso}",
+                                    'curso': curso_completo,
                                     'vagas_reg': vagas_reg,
                                     'vagas_vest': vagas_vest,
                                     'inscritos_reg': inscritos_reg,
@@ -1148,15 +1338,22 @@ def criar_visualizacoes(df):
             st.success("✅ Nenhuma turma com excedentes encontrada!")
 
 # ===== INTERFACE PRINCIPAL =====
-st.markdown('<p class="main-header">🧪 Consultor de Vagas UFF</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Instituto de Química • Sistema de consulta detalhada de turmas</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Desenvolvido por <span class="developer-name">Tadeu L. Araújo</span> (GGQ)</p>', unsafe_allow_html=True)
+st.markdown("""
+<div class="main-header-container">
+    <h1 class="main-header">Consultor de Vagas UFF</h1>
+    <p class="sub-header">Instituto de Quimica - Sistema de Consulta Detalhada de Turmas</p>
+    <p class="developer-credit">Desenvolvido por <span class="developer-name">Tadeu L. Araujo</span> (GGQ)</p>
+</div>
+""", unsafe_allow_html=True)
 
 # Sidebar com filtros
 with st.sidebar:
-    st.header("⚙️ Configurações")
-    
-    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; padding: 1rem 0; margin-bottom: 1rem;">
+        <h2 style="color: #f1f5f9; margin: 0; font-size: 1.5rem;">Configuracoes</h2>
+        <div style="height: 3px; background: linear-gradient(90deg, transparent, #3b82f6, transparent); margin-top: 0.5rem;"></div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # === SEÇÃO: PERÍODO ===
     st.subheader("📅 Período Letivo")
@@ -1311,12 +1508,16 @@ with st.sidebar:
     
     st.markdown("---")
     
-    st.info("""
-    **💡 Dicas:**
-    - A consulta pode levar alguns minutos
-    - Para consultar disciplina específica, use o código completo (ex: GQI00061)
-    - Os dados são extraídos em tempo real
-    """)
+    st.markdown("""
+    <div style="background: rgba(59, 130, 246, 0.1); border-radius: 10px; padding: 1rem; border-left: 3px solid #3b82f6;">
+        <p style="color: #e2e8f0; font-size: 0.9rem; margin: 0;">
+            <strong style="color: #60a5fa;">Dicas:</strong><br>
+            - A consulta pode levar alguns minutos<br>
+            - Para disciplina especifica, use o codigo completo (ex: GQI00061)<br>
+            - Os dados sao extraidos em tempo real
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Área principal - Processamento
 if btn_consultar and periodos_formatados and cursos_selecionados:
@@ -1398,12 +1599,12 @@ if btn_consultar and periodos_formatados and cursos_selecionados:
             st.exception(e)
             st.session_state.processando = False
 
-# Área principal - Resultados
+# Area principal - Resultados
 if st.session_state.resultado_disponivel and st.session_state.dados_turmas is not None:
     df = st.session_state.dados_turmas
     
     st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-    st.subheader("📋 Resultados da Consulta")
+    st.markdown('<p class="section-header">Resultados da Consulta</p>', unsafe_allow_html=True)
     
     if periodos_formatados:
         periodo_formatado = formatar_periodo(periodos_formatados[0])
@@ -1429,9 +1630,9 @@ if st.session_state.resultado_disponivel and st.session_state.dados_turmas is no
     # Visualizações
     criar_visualizacoes(df)
     
-    # Exportação - APENAS EXCEL
+    # Exportacao - APENAS EXCEL
     st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-    st.subheader("📥 Exportar Resultados")
+    st.markdown('<p class="section-header">Exportar Resultados</p>', unsafe_allow_html=True)
     
     col_exp1, col_exp2, col_exp3 = st.columns([1, 2, 1])
     
@@ -1451,7 +1652,7 @@ if st.session_state.resultado_disponivel and st.session_state.dados_turmas is no
     
     # Tabela interativa completa
     st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-    st.subheader("📋 Tabela Completa de Dados")
+    st.markdown('<p class="section-header">Tabela Completa de Dados</p>', unsafe_allow_html=True)
     
     col_filt1, col_filt2, col_filt3 = st.columns(3)
     
@@ -1521,57 +1722,67 @@ if st.session_state.resultado_disponivel and st.session_state.dados_turmas is no
     
     st.info(f"Mostrando {len(df_filtrado)} de {len(df)} registros")
 
-# Página inicial
+# Pagina inicial
 elif not st.session_state.processando:
     st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
     
-    col_intro1, col_intro2 = st.columns([2, 1])
+    # Cards de introducao
+    col1, col2, col3 = st.columns(3)
     
-    with col_intro1:
+    with col1:
         st.markdown("""
-        ## 🎯 Sistema de Consulta de Vagas UFF
-        
-        Este sistema consulta **detalhadamente** as vagas disponíveis nas disciplinas do 
-        **Instituto de Química da UFF**, extraindo informações completas de cada turma.
-        
-        ### 📋 **Como usar:**
-        
-        1. **📅 Digite o período** desejado (ex: 2025.2)
-        2. **🎓 Selecione os cursos** para consulta
-        3. **📚 Opcionalmente**, digite um código de disciplina específico
-        4. **🏫 Escolha os departamentos** ou deixe em "TODOS"
-        5. **🔍 Clique em Consultar** e aguarde os resultados
-        6. **📥 Exporte os dados** em Excel formatado
-        """)
+        <div class="info-card">
+            <h3 style="color: #1e40af; margin-bottom: 0.5rem;">Como Usar</h3>
+            <ol style="color: #334155; margin: 0; padding-left: 1.2rem;">
+                <li>Digite o periodo (ex: 2025.2)</li>
+                <li>Selecione os cursos</li>
+                <li>Escolha departamentos</li>
+                <li>Clique em Consultar</li>
+                <li>Exporte em Excel</li>
+            </ol>
+        </div>
+        """, unsafe_allow_html=True)
     
-    with col_intro2:
+    with col2:
         st.markdown("""
-        ### ⚙️ **Opções de Consulta:**
-        
-        **Disciplina específica:**
-        - Digite o código completo
-        - Formato: 3 letras + 5 números
-        - Ex: GQI00061, TEQ00042
-        
-        **Departamentos disponíveis:**
-        - TODOS (padrão)
-        - GGQ, GQI, GQA, GQO
-        - GFQ, GEO, GMA, GFI
-        - SSE, TEQ, TEP, TDT
-        - SFP, GLC, GGM, MTC, GCM
-        """)
+        <div class="success-card">
+            <h3 style="color: #065f46; margin-bottom: 0.5rem;">Disciplina Especifica</h3>
+            <p style="color: #334155; margin: 0;">
+                <strong>Formato:</strong> 3 letras + 5 numeros<br>
+                <strong>Exemplos:</strong><br>
+                GQI00061, TEQ00042<br>
+                GMA00159, GFI00025
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Exemplo de dados
-    with st.expander("📋 **Exemplo de Dados Coletados**"):
+    with col3:
         st.markdown("""
-        | Campo | Descrição | Exemplo |
+        <div class="warning-card">
+            <h3 style="color: #92400e; margin-bottom: 0.5rem;">Departamentos</h3>
+            <p style="color: #334155; margin: 0; font-size: 0.9rem;">
+                <strong>Disponiveis:</strong> TODOS (padrao)<br>
+                GGQ, GQI, GQA, GQO, GFQ<br>
+                GEO, GMA, GFI, SSE, TEQ<br>
+                TEP, TDT, SFP, GLC, GGM<br>
+                MTC, GCM
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Exemplo de dados em expander estilizado
+    with st.expander("Ver exemplo de dados coletados"):
+        st.markdown("""
+        | Campo | Descricao | Exemplo |
         |-------|-----------|---------|
-        | **periodo** | Período letivo | 20252 |
-        | **departamento** | Código do departamento | GQI |
-        | **codigo_disciplina** | Código da disciplina | GQI00061 |
-        | **nome_disciplina** | Nome da disciplina | Química Geral |
-        | **turma** | Identificação da turma | A01 |
-        | **curso_vaga** | Curso da vaga | 028 - Química |
+        | **periodo** | Periodo letivo | 20252 |
+        | **departamento** | Codigo do departamento | GQI |
+        | **codigo_disciplina** | Codigo da disciplina | GQI00061 |
+        | **nome_disciplina** | Nome da disciplina | Quimica Geral |
+        | **turma** | Identificacao da turma | A01 |
+        | **curso_vaga** | Curso da vaga | 028 - Quimica |
         | **vagas_reg** | Vagas regulares | 40 |
         | **inscritos_reg** | Inscritos regulares | 35 |
         | **vagas_disponiveis_reg** | Vagas disp. regulares | 5 |
@@ -1579,15 +1790,15 @@ elif not st.session_state.processando:
         """)
 
 # Rodapé
-st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-st.markdown(
-    "<div style='text-align: center; color: #666; font-size: 0.9rem; padding: 1rem 0;'>"
-    "🧪 <strong>Consultor de Vagas UFF - Instituto de Química</strong><br>"
-    "Desenvolvido por <strong>Tadeu L. Araújo (GGQ)</strong> • "
-    f"Versão: {datetime.now().strftime('%d/%m/%Y')}"
-    "</div>",
-    unsafe_allow_html=True
-)
+st.markdown(f"""
+<div class="footer-container">
+    <p class="footer-text">
+        <strong>Consultor de Vagas UFF</strong> - Instituto de Quimica<br>
+        Desenvolvido por <span class="footer-highlight">Tadeu L. Araujo (GGQ)</span><br>
+        Versao: {datetime.now().strftime('%d/%m/%Y')}
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
 if st.session_state.processando:
     st.warning("⏳ Processamento em andamento... Por favor, aguarde.")
