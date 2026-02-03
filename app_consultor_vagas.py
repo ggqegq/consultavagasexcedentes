@@ -52,7 +52,7 @@ st.markdown("""
         color: #ffffff;
         margin-bottom: 0.5rem;
         letter-spacing: -0.5px;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        text-shadow: none;
     }
     .sub-header {
         font-size: 1.15rem;
