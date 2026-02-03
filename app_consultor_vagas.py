@@ -1364,7 +1364,7 @@ with st.sidebar:
     
     periodo_input = st.text_input(
         "Digite o período (ex: 2025.2):",
-        value="2025.2",
+        value="2026.1",
         help="Formato: AAAA.S (ex: 2025.2 para 2025 semestre 2)",
         key="periodo_input"
     )
