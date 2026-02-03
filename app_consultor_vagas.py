@@ -39,7 +39,7 @@ st.markdown("""
     
     /* ===== HEADER PRINCIPAL ===== */
     .main-header-container {
-        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+        background: linear-gradient(135deg, #0f2027 0%, #1c2e35 50%, #2c5364 100%);
         border-radius: 16px;
         padding: 2rem;
         margin-bottom: 1.5rem;
@@ -47,13 +47,14 @@ st.markdown("""
         text-align: center;
     }
     .main-header {
-        font-size: 2.5rem;
-        font-weight: 800;
-        color: #ffffff;
-        margin-bottom: 0.5rem;
-        letter-spacing: -0.5px;
-        text-shadow: none;
-    }
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.5px;
+    text-shadow: 0 0 6px rgba(255,255,255,0.3);
+}
+
     .sub-header {
         font-size: 1.15rem;
         color: #a8d0e6;
