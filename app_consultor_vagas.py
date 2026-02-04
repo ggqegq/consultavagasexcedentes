@@ -610,7 +610,7 @@ class ConsultorQuadroHorariosUFFDetalhado:
                             
                             if self.mostrar_outros_cursos:
                                 incluir_curso = True
-                            elif self.apenza_cursos_quimica:
+                            elif self.apenas_cursos_quimica:
                                 # Comparacao exata: codigo do curso deve estar na lista de codigos permitidos
                                 codigo_padrao = codigo_curso.zfill(3)
                                 if codigo_padrao in self.codigos_cursos_filtro:
@@ -699,7 +699,6 @@ class ConsultorQuadroHorariosUFFDetalhado:
                         
                 departamento = codigo_disciplina[:3] if len(codigo_disciplina) >= 3 else ''
             
-            # Filtrar por departamento apenas se não estiver buscando por disciplina específica
             if departamento_busca and departamento_busca != 'TODOS' and departamento != departamento_busca:
                 return []
             
@@ -1400,92 +1399,72 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # === SEÇÃO: TIPO DE CONSULTA ===
-    st.subheader("🔍 Tipo de Consulta")
+    # === SEÇÃO: DISCIPLINA ESPECÍFICA ===
+    st.subheader("📚 Disciplina Específica")
     
-    tipo_consulta = st.radio(
-        "Escolha o tipo de consulta:",
-        options=['Por departamento', 'Por disciplina específica'],
-        key="tipo_consulta",
-        help="Selecione se deseja consultar por departamento OU por disciplina específica"
+    codigo_disciplina_input = st.text_input(
+        "Código da disciplina (opcional):",
+        value="",
+        max_chars=8,
+        help="Digite o código completo (ex: GQI00061) para consultar uma disciplina específica",
+        key="codigo_disciplina_input",
+        placeholder="Ex: GQI00061"
     )
+    
+    codigo_disciplina_valido = None
+    if codigo_disciplina_input:
+        if validar_codigo_disciplina(codigo_disciplina_input):
+            codigo_disciplina_valido = codigo_disciplina_input.strip().upper()
+            st.success(f"✅ Disciplina: {codigo_disciplina_valido}")
+        else:
+            st.error("❌ Formato: 3 letras + 5 números")
     
     st.markdown("---")
     
-    # === SEÇÃO: CONSULTA POR DEPARTAMENTO ===
-    if tipo_consulta == 'Por departamento':
-        st.subheader("🏫 Departamentos")
-        
-        modo_departamento = st.radio(
-            "Modo de seleção:",
-            options=['Lista pré-definida', 'Digitar código'],
-            key="modo_departamento",
-            horizontal=True
-        )
-        
-        departamentos_selecionados = []
-        
-        if modo_departamento == 'Lista pré-definida':
-            # Lista atualizada de departamentos
-            departamentos_opcoes = [
-                'TODOS', 'GGQ', 'GQI', 'GQA', 'GQO', 'GFQ', 'GEO', 'GMA', 
-                'GFI', 'SSE', 'TEQ', 'TEP', 'TDT', 'SFP', 'GLC', 'GGM', 'MTC', 'GCM'
-            ]
-            
-            departamentos_selecionados = st.multiselect(
-                "Selecione departamentos:",
-                options=departamentos_opcoes,
-                default=['TODOS'],
-                key="departamentos_lista"
-            )
-        else:
-            depto_input = st.text_input(
-                "Código do departamento (3 letras):",
-                value="GQI",
-                max_chars=3,
-                help="Ex: GQI, GGQ, TEQ, etc.",
-                key="depto_input"
-            )
-            
-            if depto_input:
-                depto_input = depto_input.strip().upper()
-                if validar_departamento(depto_input):
-                    departamentos_selecionados = [depto_input]
-                    st.success(f"✅ {depto_input}")
-                else:
-                    st.error("❌ Use 3 letras ou 'TODOS'")
-                    departamentos_selecionados = []
-            else:
-                departamentos_selecionados = ['TODOS']
-        
-        # Não usar disciplina específica neste modo
-        codigo_disciplina_valido = None
+    # === SEÇÃO: DEPARTAMENTOS ===
+    st.subheader("🏫 Departamentos")
     
-    # === SEÇÃO: CONSULTA POR DISCIPLINA ESPECÍFICA ===
-    else:
-        st.subheader("📚 Disciplina Específica")
+    modo_departamento = st.radio(
+        "Modo de seleção:",
+        options=['Lista pré-definida', 'Digitar código'],
+        key="modo_departamento",
+        horizontal=True
+    )
+    
+    departamentos_selecionados = []
+    
+    if modo_departamento == 'Lista pré-definida':
+        # Lista atualizada de departamentos
+        departamentos_opcoes = [
+            'TODOS', 'GGQ', 'GQI', 'GQA', 'GQO', 'GFQ', 'GEO', 'GMA', 
+            'GFI', 'SSE', 'TEQ', 'TEP', 'TDT', 'SFP', 'GLC', 'GGM', 'MTC', 'GCM'
+        ]
         
-        codigo_disciplina_input = st.text_input(
-            "Código da disciplina:",
-            value="",
-            max_chars=8,
-            help="Digite o código completo (ex: GQI00061) para consultar uma disciplina específica",
-            key="codigo_disciplina_input",
-            placeholder="Ex: GQI00061"
+        departamentos_selecionados = st.multiselect(
+            "Selecione departamentos:",
+            options=departamentos_opcoes,
+            default=['TODOS'],
+            key="departamentos_lista"
+        )
+    else:
+        depto_input = st.text_input(
+            "Código do departamento (3 letras):",
+            value="GQI",
+            max_chars=3,
+            help="Ex: GQI, GGQ, TEQ, etc.",
+            key="depto_input"
         )
         
-        if codigo_disciplina_input:
-            if validar_codigo_disciplina(codigo_disciplina_input):
-                codigo_disciplina_valido = codigo_disciplina_input.strip().upper()
-                st.success(f"✅ Disciplina: {codigo_disciplina_valido}")
+        if depto_input:
+            depto_input = depto_input.strip().upper()
+            if validar_departamento(depto_input):
+                departamentos_selecionados = [depto_input]
+                st.success(f"✅ {depto_input}")
             else:
-                st.error("❌ Formato: 3 letras + 5 números")
-                codigo_disciplina_valido = None
+                st.error("❌ Use 3 letras ou 'TODOS'")
+                departamentos_selecionados = []
         else:
-            codigo_disciplina_valido = None
-        
-        # Quando consultando por disciplina específica, usar apenas "TODOS" para departamentos
-        departamentos_selecionados = ['TODOS']
+            departamentos_selecionados = ['TODOS']
     
     st.markdown("---")
     
@@ -1533,29 +1512,16 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Mensagem informativa baseada no tipo de consulta
-    if tipo_consulta == 'Por departamento':
-        st.markdown("""
-        <div style="background: linear-gradient(145deg, #eff6ff, #dbeafe); border-radius: 10px; padding: 1rem; border-left: 3px solid #3b82f6;">
-            <p style="color: #1e293b; font-size: 0.9rem; margin: 0;">
-                <strong style="color: #1e3a5f;">Modo Departamento:</strong><br>
-                - Consulta todas as disciplinas dos departamentos selecionados<br>
-                - Use 'TODOS' para buscar em todos os departamentos<br>
-                - A consulta pode levar alguns minutos
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div style="background: linear-gradient(145deg, #d1fae5, #a7f3d0); border-radius: 10px; padding: 1rem; border-left: 3px solid #10b981;">
-            <p style="color: #1e293b; font-size: 0.9rem; margin: 0;">
-                <strong style="color: #065f46;">Modo Disciplina Específica:</strong><br>
-                - Consulta apenas a disciplina informada<br>
-                - Certifique-se de usar o código completo (ex: GQI00061)<br>
-                - A consulta é mais rápida e precisa
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown("""
+    <div style="background: linear-gradient(145deg, #eff6ff, #dbeafe); border-radius: 10px; padding: 1rem; border-left: 3px solid #3b82f6;">
+        <p style="color: #1e293b; font-size: 0.9rem; margin: 0;">
+            <strong style="color: #1e3a5f;">Dicas:</strong><br>
+            - A consulta pode levar alguns minutos<br>
+            - Para disciplina especifica, use o codigo completo (ex: GQI00061) e deixe a opção TODOS departamentos marcada<br>
+            - Os dados sao extraidos em tempo real
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Área principal - Processamento
 if btn_consultar and periodos_formatados and cursos_selecionados:
@@ -1570,38 +1536,25 @@ if btn_consultar and periodos_formatados and cursos_selecionados:
                 cursos_selecionados=cursos_selecionados
             )
             
-            # Preparar parâmetros de consulta
             deptos_consulta = []
+            for depto in departamentos_selecionados:
+                if depto == 'TODOS':
+                    deptos_consulta.append(None)
+                else:
+                    deptos_consulta.append(depto)
             
-            if tipo_consulta == 'Por departamento':
-                for depto in departamentos_selecionados:
-                    if depto == 'TODOS':
-                        deptos_consulta.append(None)
-                    else:
-                        deptos_consulta.append(depto)
-                
-                if not deptos_consulta:
-                    deptos_consulta = [None]
-                
-                codigo_disciplina_valido = None
-            else:
-                # No modo disciplina, usar apenas "TODOS" para departamento
+            if not deptos_consulta:
                 deptos_consulta = [None]
-                # codigo_disciplina_valido já está definido
             
             # Mostrar configuração da consulta
             config_msg = f"""
             **🎯 Consulta Configurada:**
             - 📅 Períodos: {', '.join([formatar_periodo(p) for p in periodos_formatados])}
             - 🎓 Cursos: {', '.join(cursos_selecionados)}
-            - 🔍 Tipo: {tipo_consulta}
+            - 🏫 Departamentos: {', '.join([d if d else 'Todos' for d in departamentos_selecionados])}
             """
-            
-            if tipo_consulta == 'Por departamento':
-                config_msg += f"\n- 🏫 Departamentos: {', '.join([d if d else 'Todos' for d in departamentos_selecionados])}"
-            else:
-                if codigo_disciplina_valido:
-                    config_msg += f"\n- 📚 Disciplina específica: {codigo_disciplina_valido}"
+            if codigo_disciplina_valido:
+                config_msg += f"\n- 📚 Disciplina específica: {codigo_disciplina_valido}"
             
             st.info(config_msg)
             
@@ -1787,9 +1740,9 @@ elif not st.session_state.processando:
             <ol style="color: #334155; margin: 0; padding-left: 1.2rem;">
                 <li>Digite o periodo (ex: 2025.2)</li>
                 <li>Selecione os cursos</li>
-                <li>Escolha o tipo de consulta</li>
-                <li>Configure os filtros</li>
+                <li>Escolha departamentos</li>
                 <li>Clique em Consultar</li>
+                <li>Exporte em Excel</li>
             </ol>
         </div>
         """, unsafe_allow_html=True)
@@ -1797,12 +1750,13 @@ elif not st.session_state.processando:
     with col2:
         st.markdown("""
         <div class="success-card">
-            <h3 style="color: #065f46; margin-bottom: 0.5rem;">Tipos de Consulta</h3>
+            <h3 style="color: #065f46; margin-bottom: 0.5rem;">Disciplina Especifica</h3>
             <p style="color: #334155; margin: 0;">
-                <strong>Por departamento:</strong><br>
-                Consulta todas as disciplinas de um ou mais departamentos<br><br>
-                <strong>Por disciplina específica:</strong><br>
-                Consulta apenas uma disciplina usando seu código completo
+                <strong>Formato:</strong> 3 letras + 5 numeros<br>
+                <strong> Importante:</strong> Deixe a opção 'TODOS' departamentos marcada<br>
+                <strong>Exemplos:</strong><br>
+                GQI00061, TEQ00042<br>
+                GMA00159, GFI00025
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -1846,7 +1800,7 @@ st.markdown(f"""
     <p class="footer-text">
         <strong>Consultor de Vagas e Excedentes UFF</strong> - Instituto de Quimica<br>
         Desenvolvido por <span class="footer-highlight">Tadeu L. Araujo (GGQ)</span><br>
-        Versão: 1.1 ({datetime.now().strftime('%d/%m/%Y')})
+        Versão: 1.0 ({datetime.now().strftime('%d/%m/%Y')})
     </p>
 </div>
 """, unsafe_allow_html=True)
